@@ -5,6 +5,7 @@ import (
 	"github.com/pojntfx/gloeth/pkg/device"
 	"github.com/pojntfx/gloeth/pkg/protocol"
 	"github.com/pojntfx/gloeth/pkg/transceiver"
+	"log"
 )
 
 func main() {
@@ -14,6 +15,9 @@ func main() {
 	tapName := flag.String("device", "goeth", "Ethernet device to create")
 	flag.Parse()
 
+	errorsWhileReceivingFrames := make(chan error)
+	errorsWhileSendingFrames := make(chan error)
+
 	receivedFrames := make(chan protocol.Frame)
 	framesToSend := make(chan protocol.Frame)
 
@@ -21,19 +25,28 @@ func main() {
 		SendHostPort:   *tcpSendHostPort,
 		ListenHostPort: *tcpListenHostPort,
 	}
-	tcp.Listen(&receivedFrames)
+	go tcp.Listen(errorsWhileReceivingFrames, receivedFrames)
 
 	tap := device.TAP{
 		Name: *tapName,
 	}
-	tap.Listen(&framesToSend)
+	go tap.Read(errorsWhileSendingFrames, framesToSend)
 
 	for {
 		select {
+		case err := <-errorsWhileReceivingFrames:
+			log.Println(err)
+		case err := <-errorsWhileSendingFrames:
+			log.Println(err)
+
 		case frame := <-receivedFrames:
-			tap.Write(frame)
+			if err := tap.Write(frame); err != nil {
+				errorsWhileReceivingFrames <- err
+			}
 		case frame := <-framesToSend:
-			tcp.Send(frame)
+			if err := tcp.Send(frame); err != nil {
+				errorsWhileSendingFrames <- err
+			}
 		}
 	}
 }
