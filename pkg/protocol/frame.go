@@ -1,8 +1,12 @@
 package protocol
 
-import (
-	"strings"
-)
+import "strings"
+
+type Frame struct {
+	From string
+	To   string
+	Body []byte
+}
 
 const (
 	FromStart = "f="
@@ -12,29 +16,13 @@ const (
 	Delimiter = "|"
 )
 
-const (
-	FrameMissingFromErrorMessage = "missing from"
-	FrameMissingToErrorMessage   = "missing to"
-	FrameMissingBodyErrorMessage = "missing body"
-
-	FrameMissingDelimiterErrorMessage = "missing delimiter"
-)
-
-type Frame struct {
-	From, To string
-	Body     []byte
+func (frame *Frame) Serialize() (error, []byte) {
+	return nil, []byte(FromStart + frame.From + Delimiter + ToStart + frame.To + Delimiter + BodyStart + string(frame.Body) + Delimiter)
 }
 
-type UnserializeError struct {
-	err   string
-	field string
-}
+func (frame *Frame) Unserialize(rawPayload []byte) error {
+	payload := string(rawPayload)
 
-func (e *UnserializeError) Error() string {
-	return e.err + " " + e.field
-}
-
-func (frame *Frame) Unserialize(payload string) error {
 	if !strings.Contains(payload, FromStart) {
 		return &UnserializeError{
 			err:   FrameMissingFromErrorMessage,
@@ -74,6 +62,19 @@ func (frame *Frame) Unserialize(payload string) error {
 	return nil
 }
 
-func (frame *Frame) Serialize() (error, string) {
-	return nil, FromStart + frame.From + Delimiter + ToStart + frame.To + Delimiter + BodyStart + string(frame.Body) + Delimiter
+type UnserializeError struct {
+	err   string
+	field string
+}
+
+const (
+	FrameMissingFromErrorMessage = "missing from"
+	FrameMissingToErrorMessage   = "missing to"
+	FrameMissingBodyErrorMessage = "missing body"
+
+	FrameMissingDelimiterErrorMessage = "missing delimiter"
+)
+
+func (e *UnserializeError) Error() string {
+	return e.err + ": " + e.field
 }
