@@ -2,6 +2,7 @@ package device
 
 import (
 	"github.com/pojntfx/gloeth/pkg/protocol"
+	"log"
 )
 
 type TAP struct {
@@ -9,9 +10,11 @@ type TAP struct {
 }
 
 func (d TAP) Write(frame protocol.Frame) error {
-	panic("implement me")
+	log.Println("tap device writing frame", frame)
+
+	return nil
 }
 
-func (d TAP) Listen(*chan protocol.Frame) error {
-	panic("implement me")
+func (d TAP) Read(errors chan error, framesToSend chan protocol.Frame) {
+	log.Println("tap device reading")
 }
