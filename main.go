@@ -2,31 +2,38 @@ package main
 
 import (
 	"flag"
-	server2 "github.com/pojntfx/gloeth/pkg/server"
-	"log"
-	"net"
+	"github.com/pojntfx/gloeth/pkg/device"
+	"github.com/pojntfx/gloeth/pkg/protocol"
+	"github.com/pojntfx/gloeth/pkg/transceiver"
 )
 
 func main() {
-	listen := flag.String("listen", "127.0.0.1:1234", "Host:port to listen on")
-	peer := flag.String("peer", "127.0.0.1:1235", "Host:port to connect to")
-	device := flag.String("device", "goeth", "Ethernet device to create")
+	tcpSendHostPort := flag.String("peer", "127.0.0.1:1235", "Host:port of the peer to send to")
+	tcpListenHostPort := flag.String("listen", "127.0.0.1:1234", "Host:port to listen on")
+
+	tapName := flag.String("device", "goeth", "Ethernet device to create")
 	flag.Parse()
 
-	server, err := net.Listen("tcp", *listen)
-	if err != nil {
-		log.Fatalln("Could not listen", err)
-	}
-	defer server.Close()
+	receivedFrames := make(chan protocol.Frame)
+	framesToSend := make(chan protocol.Frame)
 
-	log.Println(*listen, "=>", *device, "=>", *peer)
+	tcp := transceiver.TCP{
+		SendHostPort:   *tcpSendHostPort,
+		ListenHostPort: *tcpListenHostPort,
+	}
+	tcp.Listen(&receivedFrames)
+
+	tap := device.TAP{
+		Name: *tapName,
+	}
+	tap.Listen(&framesToSend)
 
 	for {
-		connection, err := server.Accept()
-		if err != nil {
-			log.Fatalln("Could not accept connection", err)
+		select {
+		case frame := <-receivedFrames:
+			tap.Write(frame)
+		case frame := <-framesToSend:
+			tcp.Send(frame)
 		}
-
-		go server2.HandleConnection(connection)
 	}
 }
