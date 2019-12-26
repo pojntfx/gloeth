@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"github.com/pojntfx/gloeth/pkg"
+	server2 "github.com/pojntfx/gloeth/pkg/server"
 	"log"
 	"net"
 )
@@ -27,6 +27,6 @@ func main() {
 			log.Fatalln("Could not accept connection", err)
 		}
 
-		go pkg.HandleConnection(connection)
+		go server2.HandleConnection(connection)
 	}
 }
