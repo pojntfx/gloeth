@@ -2,7 +2,9 @@ package main
 
 import (
 	"flag"
+	"github.com/pojntfx/gloeth/pkg"
 	"log"
+	"net"
 )
 
 func main() {
@@ -11,5 +13,20 @@ func main() {
 	device := flag.String("device", "goeth", "Ethernet device to create")
 	flag.Parse()
 
+	server, err := net.Listen("tcp", *listen)
+	if err != nil {
+		log.Fatalln("Could not listen", err)
+	}
+	defer server.Close()
+
 	log.Println(*listen, "=>", *device, "=>", *peer)
+
+	for {
+		connection, err := server.Accept()
+		if err != nil {
+			log.Fatalln("Could not accept connection", err)
+		}
+
+		go pkg.HandleConnection(connection)
+	}
 }
