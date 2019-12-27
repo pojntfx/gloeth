@@ -20,7 +20,13 @@ func (t *TCP) Write(errors chan error, status chan string, frame []byte, writeHo
 		return
 	}
 
-	if _, err := fmt.Fprintf(conn, string(frame)+"\n"); err != nil {
+	err, encodedFrame := Encode(frame)
+	if err != nil {
+		errors <- err
+		return
+	}
+
+	if _, err := fmt.Fprintf(conn, encodedFrame); err != nil {
 		errors <- err
 		t.Write(errors, status, frame, writeHostPort)
 		return
@@ -68,7 +74,7 @@ func (t *TCP) Read(errors chan error, status chan string, readFrames chan []byte
 			errors <- err
 		}
 
-		frame, err := bufio.NewReader(conn).ReadBytes('\n')
+		frame, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
 			errors <- err
 		}
@@ -77,7 +83,12 @@ func (t *TCP) Read(errors chan error, status chan string, readFrames chan []byte
 			errors <- err
 		}
 
-		readFrames <- frame
+		err, decodedFrame := Decode(frame)
+		if err != nil {
+			errors <- err
+		}
+
+		readFrames <- decodedFrame
 
 		status <- "read frame from TCP transport"
 	}
