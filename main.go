@@ -74,13 +74,15 @@ func main() {
 				log.Println("SWITCH error:", err)
 			}
 
-			destination, err := redis.GetTcpReadHostPortForNode(macAddress)
+			destinations, err := redis.GetTcpReadHostPortsForMacAddress(macAddress)
 			if err == redisLib.Nil {
-				log.Println("SWITCH error: could not find node with mac address ", macAddress, err)
+				log.Println("SWITCH error: could not find node with mac address", macAddress, err)
 			} else if err != nil {
 				log.Println("SWITCH error:", err)
 			} else {
-				go tcp.Write(tcpErrorChan, tcpStatusChan, frame, destination)
+				for _, destination := range destinations {
+					go tcp.Write(tcpErrorChan, tcpStatusChan, frame, destination)
+				}
 			}
 		case frame := <-tcpReadFramesChan:
 			go tap.Write(tapErrorChan, tapStatusChan, frame)
