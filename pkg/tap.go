@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"errors"
 	"github.com/songgao/water"
 	"net"
 	"os/exec"
@@ -34,18 +33,12 @@ func (t *TAP) Init() error {
 }
 
 func (t *TAP) GetMacAddress() (error, string) {
-	interfaces, err := net.Interfaces()
+	device, err := net.InterfaceByName(t.Name)
 	if err != nil {
 		return err, ""
 	}
 
-	for _, i := range interfaces {
-		if i.Name == t.Name {
-			return nil, i.HardwareAddr.String()
-		}
-	}
-
-	return errors.New("could not get mac address for device"), ""
+	return nil, device.HardwareAddr.String()
 }
 
 func (t *TAP) Write(errors chan error, status chan string, frame []byte) {
