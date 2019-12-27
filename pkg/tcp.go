@@ -7,35 +7,34 @@ import (
 )
 
 type TCP struct {
-	WriteHostPort string
-	ReadHostPort  string
+	ReadHostPort string
 }
 
-func (t *TCP) Write(errors chan error, status chan string, frame []byte) {
+func (t *TCP) Write(errors chan error, status chan string, frame []byte, writeHostPort string) {
 	status <- "writing frame to TCP transport"
 
-	conn, err := net.Dial("tcp", t.WriteHostPort)
+	conn, err := net.Dial("tcp", writeHostPort)
 	if err != nil {
 		errors <- err
-		t.Write(errors, status, frame)
+		t.Write(errors, status, frame, writeHostPort)
 		return
 	}
 
 	if _, err := fmt.Fprintf(conn, string(frame)+"\n"); err != nil {
 		errors <- err
-		t.Write(errors, status, frame)
+		t.Write(errors, status, frame, writeHostPort)
 		return
 	}
 
 	if _, err := bufio.NewReader(conn).ReadBytes('\n'); err != nil {
 		errors <- err
-		t.Write(errors, status, frame)
+		t.Write(errors, status, frame, writeHostPort)
 		return
 	}
 
 	if err := conn.Close(); err != nil {
 		errors <- err
-		t.Write(errors, status, frame)
+		t.Write(errors, status, frame, writeHostPort)
 		return
 	}
 

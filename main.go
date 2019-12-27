@@ -2,15 +2,15 @@ package main
 
 import (
 	"flag"
+	redisLib "github.com/go-redis/redis/v7"
 	"github.com/pojntfx/gloeth/pkg"
 	"log"
 )
 
 func main() {
 	var (
-		tapName          = flag.String("device", "gloeth0", "Name of the network device to create")
-		tcpReadHostPort  = flag.String("listen", "127.0.0.1:1234", "Host:port to listen on")
-		tcpWriteHostPort = flag.String("peer", "127.0.0.1:1235", "Host:port the peer listens on")
+		tapName         = flag.String("device", "gloeth0", "Name of the network device to create")
+		tcpReadHostPort = flag.String("listen", "127.0.0.1:1234", "Host:port to listen on")
 
 		redisHostPort = flag.String("redis-host", "127.0.0.1:6379", "Host:port of Redis")
 		redisPassword = flag.String("redis-password", "", "Password for Redis")
@@ -50,8 +50,7 @@ func main() {
 	}
 
 	tcp := pkg.TCP{
-		WriteHostPort: *tcpWriteHostPort,
-		ReadHostPort:  *tcpReadHostPort,
+		ReadHostPort: *tcpReadHostPort,
 	}
 
 	go tap.Read(tapErrorChan, tapStatusChan, tapReadFramesChan)
@@ -70,7 +69,19 @@ func main() {
 			log.Println("TCP status:", status)
 
 		case frame := <-tapReadFramesChan:
-			go tcp.Write(tcpErrorChan, tcpStatusChan, frame)
+			err, macAddress := pkg.GetDestinationMacAddressFromFrame(frame)
+			if err != nil {
+				log.Println("SWITCH error:", err)
+			}
+
+			destination, err := redis.GetTcpReadHostPortForNode(macAddress)
+			if err == redisLib.Nil {
+				log.Println("SWITCH error: could not find node with mac address ", macAddress, err)
+			} else if err != nil {
+				log.Println("SWITCH error:", err)
+			} else {
+				go tcp.Write(tcpErrorChan, tcpStatusChan, frame, destination)
+			}
 		case frame := <-tcpReadFramesChan:
 			go tap.Write(tapErrorChan, tapStatusChan, frame)
 		}
