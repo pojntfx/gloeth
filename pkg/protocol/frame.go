@@ -9,15 +9,15 @@ type Frame struct {
 }
 
 const (
-	FromStart = "f="
-	ToStart   = "t="
-	BodyStart = "b="
+	FromStart = "|f="
+	ToStart   = "|t="
+	BodyStart = "|b="
 
 	Delimiter = "|"
 )
 
 func (frame *Frame) Serialize() (error, []byte) {
-	return nil, []byte(FromStart + frame.From + Delimiter + ToStart + frame.To + Delimiter + BodyStart + string(frame.Body) + Delimiter)
+	return nil, []byte(FromStart + frame.From + ToStart + frame.To + BodyStart + string(frame.Body))
 }
 
 func (frame *Frame) Unserialize(rawPayload []byte) error {
@@ -44,13 +44,6 @@ func (frame *Frame) Unserialize(rawPayload []byte) error {
 		}
 	}
 
-	if !(len(strings.Split(payload, Delimiter)) == 4) {
-		return &UnserializeError{
-			err:   FrameMissingDelimiterErrorMessage,
-			field: Delimiter,
-		}
-	}
-
 	from := strings.Split(strings.Split(payload, FromStart)[1], Delimiter)[0]
 	to := strings.Split(strings.Split(payload, ToStart)[1], Delimiter)[0]
 	body := []byte(strings.Split(strings.Split(payload, BodyStart)[1], Delimiter)[0])
@@ -71,8 +64,6 @@ const (
 	FrameMissingFromErrorMessage = "missing from"
 	FrameMissingToErrorMessage   = "missing to"
 	FrameMissingBodyErrorMessage = "missing body"
-
-	FrameMissingDelimiterErrorMessage = "missing delimiter"
 )
 
 func (e *UnserializeError) Error() string {

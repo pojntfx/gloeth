@@ -43,12 +43,14 @@ func main() {
 			log.Println(err)
 
 		case frame := <-framesToSend:
-			go tcp.Send(frame)
+			log.Println("Read frame from TAP device, sending with TCP transceiver", frame.From, frame.To, string(frame.Body))
+			go tcp.Send(frame) // TODO: Handle error
 			//if err := tcp.Send(frame); err != nil {
 			//	errorsWhileSendingFrames <- err
 			//}
 		case frame := <-receivedFrames:
-			go tap.Write(frame)
+			log.Println("Received frame from TCP transceiver, writing to TAP device", frame.From, frame.To, string(frame.Body))
+			go tap.Write(frame) // TODO: Handle error
 			//if err := tap.Write(frame); err != nil {
 			//	errorsWhileReceivingFrames <- err
 			//}
