@@ -1,7 +1,9 @@
 package pkg
 
 import (
+	"errors"
 	"github.com/songgao/water"
+	"net"
 	"os/exec"
 )
 
@@ -10,9 +12,7 @@ type TAP struct {
 	device water.Interface
 }
 
-func (t *TAP) Init(errors chan error, status chan string) {
-	status <- "creating TAP device"
-
+func (t *TAP) Init() error {
 	config := water.Config{
 		DeviceType: water.TAP,
 	}
@@ -20,24 +20,32 @@ func (t *TAP) Init(errors chan error, status chan string) {
 
 	device, err := water.New(config)
 	if err != nil {
-		errors <- err
-		return
+		return err
 	}
 
 	t.device = *device
 
-	status <- "created TAP device"
-
-	status <- "bringing TAP device up"
-
 	if _, err := exec.Command("ip", "link", "set", "dev", t.Name, "up").CombinedOutput(); err != nil {
-		errors <- err
-		return
+		return err
 	}
 
-	status <- "brought TAP device up"
-
 	// TODO: Close TAP device (in interrupt handler, maybe)
+	return nil
+}
+
+func (t *TAP) GetMacAddress() (error, string) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return err, ""
+	}
+
+	for _, i := range interfaces {
+		if i.Name == t.Name {
+			return nil, i.HardwareAddr.String()
+		}
+	}
+
+	return errors.New("could not get mac address for device"), ""
 }
 
 func (t *TAP) Write(errors chan error, status chan string, frame []byte) {

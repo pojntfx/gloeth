@@ -8,9 +8,12 @@ import (
 
 func main() {
 	var (
-		tapName          = flag.String("device", "gloeth", "Name of the TAP device to create")
+		tapName          = flag.String("device", "gloeth0", "Name of the network device to create")
 		tcpReadHostPort  = flag.String("listen", "127.0.0.1:1234", "Host:port to listen on")
 		tcpWriteHostPort = flag.String("peer", "127.0.0.1:1235", "Host:port the peer listens on")
+
+		redisHostPort = flag.String("redis-host", "127.0.0.1:6379", "Host:port of Redis")
+		redisPassword = flag.String("redis-password", "", "Password for Redis")
 	)
 	flag.Parse()
 
@@ -25,27 +28,25 @@ func main() {
 		tcpReadFramesChan = make(chan []byte)
 	)
 
+	redis := pkg.Redis{}
+
+	redis.Connect(*redisHostPort, *redisPassword)
+
 	tap := pkg.TAP{
 		Name: *tapName,
 	}
 
-	go tap.Init(tapErrorChan, tapStatusChan)
+	if err := tap.Init(); err != nil {
+		log.Fatalln("TAP init error:", err)
+	}
 
-	for {
-		var shouldBreak bool
+	err, macAddress := tap.GetMacAddress()
+	if err != nil {
+		log.Fatalln("TAP registration error:", err)
+	}
 
-		select {
-		case err := <-tapErrorChan:
-			log.Fatalln("TAP init error:", err)
-		case status := <-tapStatusChan:
-			log.Println("TAP init status:", status)
-			if status == "brought TAP device up" {
-				shouldBreak = true
-			}
-		}
-		if shouldBreak {
-			break
-		}
+	if err := redis.RegisterNode(macAddress, *tcpReadHostPort); err != nil {
+		log.Fatalln("TAP registration error:", err)
 	}
 
 	tcp := pkg.TCP{
