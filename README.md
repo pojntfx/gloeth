@@ -9,14 +9,18 @@ A Go package [is available](https://godoc.org/github.com/pojntfx/gloeth).
 ## Usage
 
 ```bash
-% gloeth --help
+% gloeth --help   
 Usage of gloeth:
   -device string
-        Ethernet device to create (default "goeth")
+        Name of the network device to create (default "gloeth0")
   -listen string
         Host:port to listen on (default "127.0.0.1:1234")
   -peer string
-        Host:port of the peer to send to (default "127.0.0.1:1235")
+        Host:port the peer listens on (default "127.0.0.1:1235")
+  -redis-host string
+        Host:port of Redis (default "127.0.0.1:6379")
+  -redis-password string
+        Password for Redis
 ```
 
 ## License
