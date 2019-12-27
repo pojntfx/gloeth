@@ -2,6 +2,7 @@ package transceiver
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/pojntfx/gloeth/pkg/protocol"
 	"log"
 	"net"
@@ -13,7 +14,20 @@ type TCP struct {
 }
 
 func (t *TCP) Send(frame protocol.Frame) error {
-	log.Println("tcp transceiver sending frame", frame)
+	err, frameSerialized := frame.Serialize()
+	if err != nil {
+		return err
+	}
+
+	conn, err := net.Dial("tcp", t.SendHostPort)
+	if err != nil {
+		return err
+	}
+
+	if _, err := fmt.Fprintf(conn, string(frameSerialized)+"\n"); err != nil {
+		return err
+	}
+	defer func() { _ = conn.Close() }()
 
 	return nil
 }

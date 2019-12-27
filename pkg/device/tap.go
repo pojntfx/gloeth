@@ -6,6 +6,7 @@ import (
 	ethernetRead "github.com/songgao/packets/ethernet"
 	"github.com/songgao/water"
 	"log"
+	"net"
 	"os/exec"
 )
 
@@ -57,24 +58,25 @@ func (d *TAP) Write(frame protocol.Frame) error {
 func (d *TAP) Read(errors chan error, framesToSend chan protocol.Frame) {
 	log.Println("tap device reading")
 
-	var ethernetFrame ethernetRead.Frame
+	var frame ethernetRead.Frame
 
 	for {
-		ethernetFrame.Resize(1500)
-
-		n, err := d.device.Read(ethernetFrame)
+		frame.Resize(1500)
+		n, err := d.device.Read(frame)
 		if err != nil {
 			errors <- err
 		}
+		frame = frame[:n]
 
-		ethernetFrame = ethernetFrame[:n]
+		source := net.HardwareAddr{frame.Source()[0], frame.Source()[1], frame.Source()[2], frame.Source()[3], frame.Source()[4], frame.Source()[5]}
+		destination := net.HardwareAddr{frame.Destination()[0], frame.Destination()[1], frame.Destination()[2], frame.Destination()[3], frame.Destination()[4], frame.Destination()[5]}
 
-		frame := protocol.Frame{
-			From: string(ethernetFrame.Source()),
-			To:   string(ethernetFrame.Destination()),
-			Body: ethernetFrame.Payload(),
+		frameToSend := protocol.Frame{
+			From: source.String(),
+			To:   destination.String(),
+			Body: frame.Payload(),
 		}
 
-		framesToSend <- frame
+		framesToSend <- frameToSend
 	}
 }
