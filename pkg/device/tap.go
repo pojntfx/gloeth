@@ -1,6 +1,7 @@
 package device
 
 import (
+	"github.com/mdlayher/ethernet"
 	"github.com/pojntfx/gloeth/pkg/protocol"
 	"github.com/songgao/water"
 	"log"
@@ -9,10 +10,10 @@ import (
 
 type TAP struct {
 	Name   string
-	device *water.Interface
+	device water.Interface
 }
 
-func (d TAP) Init() error {
+func (d *TAP) Init() error {
 	config := water.Config{
 		DeviceType: water.TAP,
 	}
@@ -23,7 +24,7 @@ func (d TAP) Init() error {
 		return err
 	}
 
-	d.device = device
+	d.device = *device
 
 	if _, err := exec.Command("ip", "link", "set", "dev", d.Name, "up").CombinedOutput(); err != nil {
 		return err
@@ -32,10 +33,26 @@ func (d TAP) Init() error {
 	return nil
 }
 
-func (d TAP) Write(frame protocol.Frame) error {
+func (d *TAP) Write(frame protocol.Frame) error {
+	etherFrame := &ethernet.Frame{
+		Destination: []byte(frame.To),
+		Source:      []byte(frame.From),
+		EtherType:   0xcccc,
+		Payload:     frame.Body,
+	}
+
+	etherFrameBinary, err := etherFrame.MarshalBinary()
+	if err != nil {
+		return err
+	}
+
+	if _, err := d.device.Write(etherFrameBinary); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (d TAP) Read(errors chan error, framesToSend chan protocol.Frame) {
+func (d *TAP) Read(errors chan error, framesToSend chan protocol.Frame) {
 	log.Println("tap device reading")
 }
