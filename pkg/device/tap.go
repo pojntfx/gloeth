@@ -3,6 +3,7 @@ package device
 import (
 	"github.com/mdlayher/ethernet"
 	"github.com/pojntfx/gloeth/pkg/protocol"
+	ethernetRead "github.com/songgao/packets/ethernet"
 	"github.com/songgao/water"
 	"log"
 	"os/exec"
@@ -55,4 +56,25 @@ func (d *TAP) Write(frame protocol.Frame) error {
 
 func (d *TAP) Read(errors chan error, framesToSend chan protocol.Frame) {
 	log.Println("tap device reading")
+
+	var ethernetFrame ethernetRead.Frame
+
+	for {
+		ethernetFrame.Resize(1500)
+
+		n, err := d.device.Read(ethernetFrame)
+		if err != nil {
+			errors <- err
+		}
+
+		ethernetFrame = ethernetFrame[:n]
+
+		frame := protocol.Frame{
+			From: string(ethernetFrame.Source()),
+			To:   string(ethernetFrame.Destination()),
+			Body: ethernetFrame.Payload(),
+		}
+
+		framesToSend <- frame
+	}
 }
