@@ -43,13 +43,15 @@ func main() {
 			log.Println(err)
 
 		case frame := <-framesToSend:
-			if err := tcp.Send(frame); err != nil {
-				errorsWhileSendingFrames <- err
-			}
+			go tcp.Send(frame)
+			//if err := tcp.Send(frame); err != nil {
+			//	errorsWhileSendingFrames <- err
+			//}
 		case frame := <-receivedFrames:
-			if err := tap.Write(frame); err != nil {
-				errorsWhileReceivingFrames <- err
-			}
+			go tap.Write(frame)
+			//if err := tap.Write(frame); err != nil {
+			//	errorsWhileReceivingFrames <- err
+			//}
 		}
 	}
 }
