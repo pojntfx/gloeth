@@ -4,6 +4,7 @@ import (
 	"github.com/pojntfx/gloeth/pkg/protocol"
 	"github.com/songgao/water"
 	"log"
+	"os/exec"
 )
 
 type TAP struct {
@@ -24,12 +25,14 @@ func (d TAP) Init() error {
 
 	d.device = device
 
+	if _, err := exec.Command("ip", "link", "set", "dev", d.Name, "up").CombinedOutput(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (d TAP) Write(frame protocol.Frame) error {
-	log.Println("tap device writing frame", frame)
-
 	return nil
 }
 
