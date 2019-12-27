@@ -2,58 +2,76 @@ package main
 
 import (
 	"flag"
-	"github.com/pojntfx/gloeth/pkg/device"
-	"github.com/pojntfx/gloeth/pkg/protocol"
-	"github.com/pojntfx/gloeth/pkg/transceiver"
+	"github.com/pojntfx/gloeth/pkg"
 	"log"
 )
 
 func main() {
-	tapName := flag.String("device", "goeth", "Ethernet device to create")
-
-	tcpSendHostPort := flag.String("peer", "127.0.0.1:1235", "Host:port of the peer to send to")
-	tcpListenHostPort := flag.String("listen", "127.0.0.1:1234", "Host:port to listen on")
+	var (
+		tapName          = flag.String("device", "gloeth", "Name of the TAP device to create")
+		tcpReadHostPort  = flag.String("listen", "127.0.0.1:1234", "Host:port to listen on")
+		tcpWriteHostPort = flag.String("peer", "127.0.0.1:1235", "Host:port the peer listens on")
+	)
 	flag.Parse()
 
-	errorsWhileSendingFrames := make(chan error)
-	errorsWhileReceivingFrames := make(chan error)
+	var (
+		tapErrorChan = make(chan error)
+		tcpErrorChan = make(chan error)
 
-	framesToSend := make(chan protocol.Frame)
-	receivedFrames := make(chan protocol.Frame)
+		tapStatusChan = make(chan string)
+		tcpStatusChan = make(chan string)
 
-	tap := device.TAP{
+		tapReadFramesChan = make(chan []byte)
+		tcpReadFramesChan = make(chan []byte)
+	)
+
+	tap := pkg.TAP{
 		Name: *tapName,
 	}
-	if err := tap.Init(); err != nil {
-		log.Fatal(err)
-	}
-	go tap.Read(errorsWhileSendingFrames, framesToSend)
 
-	tcp := transceiver.TCP{
-		SendHostPort:   *tcpSendHostPort,
-		ListenHostPort: *tcpListenHostPort,
+	go tap.Init(tapErrorChan, tapStatusChan)
+
+	for {
+		var shouldBreak bool
+
+		select {
+		case err := <-tapErrorChan:
+			log.Fatalln("TAP init error:", err)
+		case status := <-tapStatusChan:
+			log.Println("TAP init status:", status)
+			if status == "brought TAP device up" {
+				shouldBreak = true
+			}
+		}
+		if shouldBreak {
+			break
+		}
 	}
-	go tcp.Listen(errorsWhileReceivingFrames, receivedFrames)
+
+	tcp := pkg.TCP{
+		WriteHostPort: *tcpWriteHostPort,
+		ReadHostPort:  *tcpReadHostPort,
+	}
+
+	go tap.Read(tapErrorChan, tapStatusChan, tapReadFramesChan)
+	go tcp.Read(tcpErrorChan, tcpStatusChan, tcpReadFramesChan)
 
 	for {
 		select {
-		case err := <-errorsWhileSendingFrames:
-			log.Println(err)
-		case err := <-errorsWhileReceivingFrames:
-			log.Println(err)
+		case err := <-tapErrorChan:
+			log.Println("TAP error:", err)
+		case err := <-tcpErrorChan:
+			log.Println("TCP error:", err)
 
-		case frame := <-framesToSend:
-			log.Println("Read frame from TAP device, sending with TCP transceiver", frame.From, frame.To, string(frame.Body))
-			go tcp.Send(frame) // TODO: Handle error
-			//if err := tcp.Send(frame); err != nil {
-			//	errorsWhileSendingFrames <- err
-			//}
-		case frame := <-receivedFrames:
-			log.Println("Received frame from TCP transceiver, writing to TAP device", frame.From, frame.To, string(frame.Body))
-			go tap.Write(frame) // TODO: Handle error
-			//if err := tap.Write(frame); err != nil {
-			//	errorsWhileReceivingFrames <- err
-			//}
+		case status := <-tapStatusChan:
+			log.Println("TAP status:", status)
+		case status := <-tcpStatusChan:
+			log.Println("TCP status:", status)
+
+		case frame := <-tapReadFramesChan:
+			go tcp.Write(tcpErrorChan, tcpStatusChan, frame)
+		case frame := <-tcpReadFramesChan:
+			go tap.Write(tapErrorChan, tapStatusChan, frame)
 		}
 	}
 }
