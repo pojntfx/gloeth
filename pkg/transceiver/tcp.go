@@ -12,13 +12,13 @@ type TCP struct {
 	ListenHostPort string
 }
 
-func (t TCP) Send(frame protocol.Frame) error {
+func (t *TCP) Send(frame protocol.Frame) error {
 	log.Println("tcp transceiver sending frame", frame)
 
 	return nil
 }
 
-func (t TCP) Listen(errors chan error, receivedFrames chan protocol.Frame) {
+func (t *TCP) Listen(errors chan error, receivedFrames chan protocol.Frame) {
 	log.Println("tcp transceiver listening")
 
 	listener, err := net.Listen("tcp", t.ListenHostPort)
@@ -41,7 +41,7 @@ func (t TCP) Listen(errors chan error, receivedFrames chan protocol.Frame) {
 	}
 }
 
-func (t TCP) handleConnection(conn net.Conn, errors chan error, receivedFrames chan protocol.Frame) {
+func (t *TCP) handleConnection(conn net.Conn, errors chan error, receivedFrames chan protocol.Frame) {
 	message, err := bufio.NewReader(conn).ReadBytes('\n')
 	if err != nil {
 		if err := conn.Close(); err != nil {
