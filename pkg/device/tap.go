@@ -2,11 +2,29 @@ package device
 
 import (
 	"github.com/pojntfx/gloeth/pkg/protocol"
+	"github.com/songgao/water"
 	"log"
 )
 
 type TAP struct {
-	Name string
+	Name   string
+	device *water.Interface
+}
+
+func (d TAP) Init() error {
+	config := water.Config{
+		DeviceType: water.TAP,
+	}
+	config.Name = d.Name
+
+	device, err := water.New(config)
+	if err != nil {
+		return err
+	}
+
+	d.device = device
+
+	return nil
 }
 
 func (d TAP) Write(frame protocol.Frame) error {

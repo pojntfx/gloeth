@@ -9,17 +9,25 @@ import (
 )
 
 func main() {
+	tapName := flag.String("device", "goeth", "Ethernet device to create")
+
 	tcpSendHostPort := flag.String("peer", "127.0.0.1:1235", "Host:port of the peer to send to")
 	tcpListenHostPort := flag.String("listen", "127.0.0.1:1234", "Host:port to listen on")
-
-	tapName := flag.String("device", "goeth", "Ethernet device to create")
 	flag.Parse()
 
-	errorsWhileReceivingFrames := make(chan error)
 	errorsWhileSendingFrames := make(chan error)
+	errorsWhileReceivingFrames := make(chan error)
 
-	receivedFrames := make(chan protocol.Frame)
 	framesToSend := make(chan protocol.Frame)
+	receivedFrames := make(chan protocol.Frame)
+
+	tap := device.TAP{
+		Name: *tapName,
+	}
+	if err := tap.Init(); err != nil {
+		log.Fatal(err)
+	}
+	go tap.Read(errorsWhileSendingFrames, framesToSend)
 
 	tcp := transceiver.TCP{
 		SendHostPort:   *tcpSendHostPort,
@@ -27,25 +35,20 @@ func main() {
 	}
 	go tcp.Listen(errorsWhileReceivingFrames, receivedFrames)
 
-	tap := device.TAP{
-		Name: *tapName,
-	}
-	go tap.Read(errorsWhileSendingFrames, framesToSend)
-
 	for {
 		select {
-		case err := <-errorsWhileReceivingFrames:
-			log.Println(err)
 		case err := <-errorsWhileSendingFrames:
 			log.Println(err)
+		case err := <-errorsWhileReceivingFrames:
+			log.Println(err)
 
-		case frame := <-receivedFrames:
-			if err := tap.Write(frame); err != nil {
-				errorsWhileReceivingFrames <- err
-			}
 		case frame := <-framesToSend:
 			if err := tcp.Send(frame); err != nil {
 				errorsWhileSendingFrames <- err
+			}
+		case frame := <-receivedFrames:
+			if err := tap.Write(frame); err != nil {
+				errorsWhileReceivingFrames <- err
 			}
 		}
 	}
