@@ -92,6 +92,4 @@ func (t *TCP) Read(errors chan error, status chan string, readFrames chan []byte
 
 		status <- "read frame from TCP transport"
 	}
-
-	status <- "read frames from TCP transport"
 }

@@ -8,13 +8,13 @@ import (
 )
 
 func GetDestinationMacAddressFromFrame(frame []byte) (error, string) {
-	var unmarshalledFrame ethernet.Frame
+	var unmarshalFrame ethernet.Frame
 
-	if err := (&unmarshalledFrame).UnmarshalBinary(frame); err != nil {
+	if err := (&unmarshalFrame).UnmarshalBinary(frame); err != nil {
 		return err, ""
 	}
 
-	destination := unmarshalledFrame.Destination.String()
+	destination := unmarshalFrame.Destination.String()
 
 	return nil, destination
 }
@@ -23,9 +23,13 @@ func Encode(fromTAP []byte) (error, string) {
 	toTCP := &bytes.Buffer{}
 	encoder := base64.NewEncoder(base64.StdEncoding, toTCP)
 
-	encoder.Write(fromTAP)
+	if _, err := encoder.Write(fromTAP); err != nil {
+		return err, ""
+	}
 
-	encoder.Close()
+	if err := encoder.Close(); err != nil {
+		return err, ""
+	}
 
 	return nil, toTCP.String() + "\n"
 }

@@ -77,6 +77,4 @@ func (t *TAP) Read(errors chan error, status chan string, readFrames chan []byte
 
 		status <- "read frame from TAP device"
 	}
-
-	status <- "read frames from TAP device"
 }
