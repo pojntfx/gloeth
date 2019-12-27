@@ -19,3 +19,7 @@ func (d *Redis) Connect(hostPort, password string) {
 func (d *Redis) RegisterNode(macAddress, tcpReadHostPort string) error {
 	return d.client.Set(macAddress, tcpReadHostPort, 0).Err()
 }
+
+func (d *Redis) GetTcpReadHostPortForNode(macAddress string) (string, error) {
+	return d.client.Get(macAddress).Result()
+}
