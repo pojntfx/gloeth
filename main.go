@@ -9,16 +9,10 @@
 package main
 
 import (
-	"bytes"
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"hash"
 	"log"
 	"net"
 	"os"
@@ -28,8 +22,6 @@ import (
 )
 
 const (
-	/* HMAC-SHA256 MAC Size */
-	HMAC_SHA256_SIZE = sha256.Size
 	/* Timestamp Size */
 	TIMESTAMP_SIZE = 8
 
@@ -43,88 +35,11 @@ const (
 	/* Tap MTU
 	 *   = UDP_MTU - Ethernet Header (14) - HMAC_SHA256_SIZE - TIMESTAMP_SIZE
 	 *   = 1418 */
-	TAP_MTU = UDP_MTU - 14 - HMAC_SHA256_SIZE - TIMESTAMP_SIZE
+	TAP_MTU = UDP_MTU - 14 - TIMESTAMP_SIZE
 
 	/* Debug level: 0 (off), 1 (report discarded frames), 2 (verbose) */
 	DEBUG = 1
 )
-
-/**********************************************************************/
-/*** Key file reading and generation ***/
-/**********************************************************************/
-
-/* The key file simply contains a base64 encoded random key.
- * The default random key size is HMAC_SHA256_SIZE. */
-
-func keyfile_read(path string) (key []byte, e error) {
-	var key_base64 []byte
-
-	/* Attempt to open the key file for reading */
-	keyfile, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer keyfile.Close()
-
-	/* Get the key file size */
-	fi, err := keyfile.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("Error getting key file size: %s", err)
-	}
-
-	/* Read the base64 key */
-	key_base64 = make([]byte, fi.Size())
-	n, err := keyfile.Read(key_base64)
-	if err != nil {
-		return nil, fmt.Errorf("Error reading key file: %s", err)
-	}
-	/* Trim whitespace */
-	key_base64 = bytes.TrimSpace(key_base64)
-
-	/* Decode the base64 key */
-	key = make([]byte, base64.StdEncoding.DecodedLen(len(key_base64)))
-	n, err = base64.StdEncoding.Decode(key, key_base64)
-	if err != nil {
-		return nil, fmt.Errorf("Error decoding base64 key file: %s", err)
-	}
-	/* Truncate the key bytes to the right size */
-	key = key[0:n]
-
-	/* Check key size */
-	if len(key) == 0 {
-		return nil, fmt.Errorf("Error, invalid key in key file!")
-	}
-
-	return key, nil
-}
-
-func keyfile_generate(path string) (key []byte, e error) {
-	/* Generate a random key */
-	key = make([]byte, HMAC_SHA256_SIZE)
-	n, err := rand.Read(key)
-	if n != len(key) {
-		return nil, fmt.Errorf("Error generating random key of size %d: %s", len(key), err)
-	}
-
-	/* Base64 encode the key */
-	key_base64 := make([]byte, base64.StdEncoding.EncodedLen(len(key)))
-	base64.StdEncoding.Encode(key_base64, key)
-
-	/* Open the key file for writing */
-	keyfile, err := os.Create(path)
-	if err != nil {
-		return nil, fmt.Errorf("Error opening key file for writing: %s", err)
-	}
-	defer keyfile.Close()
-
-	/* Write the base64 encoded key */
-	_, err = keyfile.Write(key_base64)
-	if err != nil {
-		return nil, fmt.Errorf("Error writing base64 encoded key to keyfile: %s", err)
-	}
-
-	return key, nil
-}
 
 /**********************************************************************/
 /*** Frame Encapsulation ***/
@@ -135,7 +50,7 @@ func keyfile_generate(path string) (key []byte, e error) {
  * |             Plaintext Frame (1-1432 bytes)              |
  */
 
-func encap_frame(frame []byte, hmac_h hash.Hash) (enc_frame []byte, invalid error) {
+func encap_frame(frame []byte) (enc_frame []byte, invalid error) {
 	/* Encode Big Endian representation of current nanosecond unix time */
 	time_unixnano := time.Now().UnixNano()
 	time_bytes := make([]byte, 8)
@@ -144,38 +59,27 @@ func encap_frame(frame []byte, hmac_h hash.Hash) (enc_frame []byte, invalid erro
 	/* Prepend the timestamp to the frame */
 	timestamped_frame := append(time_bytes, frame...)
 
-	/* Compute the HMAC-SHA256 of the timestamped frame */
-	hmac_h.Reset()
-	hmac_h.Write(timestamped_frame)
-
 	/* Prepend the HMAC-SHA256 */
-	enc_frame = append(hmac_h.Sum(nil), timestamped_frame...)
+	enc_frame = timestamped_frame
 
 	return enc_frame, nil
 }
 
-func decap_frame(enc_frame []byte, hmac_h hash.Hash) (frame []byte, invalid error) {
+func decap_frame(enc_frame []byte) (frame []byte, invalid error) {
 	/* Check that the encapsulated frame size is valid */
-	if len(enc_frame) < (TIMESTAMP_SIZE + HMAC_SHA256_SIZE + 1) {
+	if len(enc_frame) < (TIMESTAMP_SIZE + 1) {
 		return nil, errors.New("Invalid encapsulated frame size!")
 	}
 
 	/* Verify the timestamp */
-	time_bytes := enc_frame[HMAC_SHA256_SIZE : HMAC_SHA256_SIZE+TIMESTAMP_SIZE]
+	time_bytes := enc_frame[0:TIMESTAMP_SIZE]
 	time_unixnano := int64(binary.BigEndian.Uint64(time_bytes))
 	curtime_unixnano := time.Now().UnixNano()
 	if (curtime_unixnano - time_unixnano) > TIMESTAMP_DIFF_THRESHOLD {
 		return nil, errors.New("Timestamp outside of acceptable range!")
 	}
 
-	/* Verify the HMAC-SHA256 */
-	hmac_h.Reset()
-	hmac_h.Write(enc_frame[HMAC_SHA256_SIZE:])
-	if bytes.Compare(hmac_h.Sum(nil), enc_frame[0:HMAC_SHA256_SIZE]) != 0 {
-		return nil, errors.New("Error verifying MAC!")
-	}
-
-	return enc_frame[HMAC_SHA256_SIZE+TIMESTAMP_SIZE:], nil
+	return enc_frame[TIMESTAMP_SIZE:], nil
 }
 
 /**********************************************************************/
@@ -277,7 +181,7 @@ func (tap_conn *TapConn) Write(b []byte) (n int, err error) {
 /** Phys to Tap Forwarding ***/
 /**********************************************************************/
 
-func forward_phys_to_tap(phys_conn *net.UDPConn, tap_conn *TapConn, peer_addr *net.UDPAddr, key []byte, chan_disc_peer chan net.UDPAddr) {
+func forward_phys_to_tap(phys_conn *net.UDPConn, tap_conn *TapConn, peer_addr *net.UDPAddr, chan_disc_peer chan net.UDPAddr) {
 	/* Raw UDP packet received */
 	packet := make([]byte, UDP_MTU)
 	/* Decapsulated frame and error */
@@ -287,9 +191,6 @@ func forward_phys_to_tap(phys_conn *net.UDPConn, tap_conn *TapConn, peer_addr *n
 	var cur_peer_addr net.UDPAddr
 	/* Peer discovery */
 	var peer_discovery bool
-
-	/* Initialize our HMAC-SHA256 hash context */
-	hmac_h := hmac.New(sha256.New, key)
 
 	/* If a peer was specified, fill in our peer information */
 	if peer_addr != nil {
@@ -322,7 +223,7 @@ func forward_phys_to_tap(phys_conn *net.UDPConn, tap_conn *TapConn, peer_addr *n
 		}
 
 		/* Decapsulate the frame, skip it if it's invalid */
-		dec_frame, invalid = decap_frame(packet[0:n], hmac_h)
+		dec_frame, invalid = decap_frame(packet[0:n])
 		if invalid != nil {
 			if DEBUG >= 1 {
 				log.Printf("<- udp  | Frame discarded! Size: %d, Reason: %s\n", n, invalid.Error())
@@ -363,7 +264,7 @@ func forward_phys_to_tap(phys_conn *net.UDPConn, tap_conn *TapConn, peer_addr *n
 /** Tap to Phys Forwarding ***/
 /**********************************************************************/
 
-func forward_tap_to_phys(phys_conn *net.UDPConn, tap_conn *TapConn, peer_addr *net.UDPAddr, key []byte, chan_disc_peer chan net.UDPAddr) {
+func forward_tap_to_phys(phys_conn *net.UDPConn, tap_conn *TapConn, peer_addr *net.UDPAddr, chan_disc_peer chan net.UDPAddr) {
 	/* Raw tap frame received */
 	//var frame []byte
 	frame := make([]byte, TAP_MTU+14)
@@ -374,9 +275,6 @@ func forward_tap_to_phys(phys_conn *net.UDPConn, tap_conn *TapConn, peer_addr *n
 	var cur_peer_addr net.UDPAddr
 	/* Peer discovery */
 	var peer_discovery bool
-
-	/* Initialize our HMAC-SHA256 hash context */
-	hmac_h := hmac.New(sha256.New, key)
 
 	/* If a peer was specified, fill in our peer information */
 	if peer_addr != nil {
@@ -413,7 +311,7 @@ func forward_tap_to_phys(phys_conn *net.UDPConn, tap_conn *TapConn, peer_addr *n
 		}
 
 		/* Encapsulate the frame, skip it if it's invalid */
-		enc_frame, invalid = encap_frame(frame[0:n], hmac_h)
+		enc_frame, invalid = encap_frame(frame[0:n])
 		if invalid != nil {
 			if DEBUG >= 1 {
 				log.Printf("-> udp  | Frame discarded! Size: %d, Reason: %s\n", n, invalid.Error())
@@ -446,21 +344,6 @@ func main() {
 		fmt.Printf("If no peer address is provided, tinytaptunnel will discover its peer by valid\nframes it authenticates and decodes.\n\n")
 		fmt.Printf("If the specified key file does not exist, it will be automatically generated\nwith secure random bytes.\n\n")
 		os.Exit(1)
-	}
-
-	var key []byte
-
-	/* Attempt to read the key file */
-	key, err := keyfile_read(os.Args[1])
-	/* If the error is file does not exist */
-	if err != nil && os.IsNotExist(err) {
-		/* Auto-generate the key file */
-		key, err = keyfile_generate(os.Args[1])
-		if err != nil {
-			log.Fatalf("Error generating key file: %s\n", err)
-		}
-	} else if err != nil {
-		log.Fatalf("Error reading key file: %s\n", err)
 	}
 
 	/* Parse & resolve local address */
@@ -503,6 +386,6 @@ func main() {
 	log.Println("Starting tinytaptunnel...")
 
 	/* Run two goroutines for forwarding between interfaces */
-	go forward_phys_to_tap(phys_conn, tap_conn, peer_addr, key, chan_disc_peer)
-	forward_tap_to_phys(phys_conn, tap_conn, peer_addr, key, chan_disc_peer)
+	go forward_phys_to_tap(phys_conn, tap_conn, peer_addr, chan_disc_peer)
+	forward_tap_to_phys(phys_conn, tap_conn, peer_addr, chan_disc_peer)
 }
