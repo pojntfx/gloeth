@@ -18,8 +18,8 @@ const (
 	TIMESTAMP_SIZE    = 8               // TIMESTAMP_SIZE is the size of the timestamp
 	TIMESTAMP_TIMEOUT = time.Second * 3 // TIMESTAMP_TIMEOUT is the maximum duration after which a frame will be discarded
 
-	UDP_MTU = 1472                          // The UDP MTU
-	TAP_MTU = UDP_MTU - 14 - TIMESTAMP_SIZE // TAP_MTU is UDP_MTU - ethernet header (14) - TIMESTAMP_SIZE
+	TCP_MTU = 1472                          // The TCP MTU
+	TAP_MTU = TCP_MTU - 14 - TIMESTAMP_SIZE // TAP_MTU is TCP_MTU - ethernet header (14) - TIMESTAMP_SIZE
 )
 
 // EncapsulateFrame encapsulates a frame
@@ -136,17 +136,26 @@ func (t *TAPDevice) Write(b []byte) (n int, err error) {
 	return syscall.Write(t.fd, b)
 }
 
-// ForwardUDPtoTAP forwards UDP packets to a TAP device
-func ForwardUDPtoTAP(udpConn *net.UDPConn, tapDevice *TAPDevice, remoteAddr *net.UDPAddr) {
-	log.Printf("forwarding UDP to TAP with remote %v:%v\n", remoteAddr.IP, remoteAddr.Port)
+// ForwardTCPtoTAP forwards TCP packets to a TAP device
+func ForwardTCPtoTAP(tcpConn *net.TCPListener, tapDevice *TAPDevice, remoteAddr *net.TCPAddr) {
+	log.Printf("forwarding TCP to TAP with remote %v:%v\n", remoteAddr.IP, remoteAddr.Port)
 
 	for {
-		packet := make([]byte, UDP_MTU)
+		packet := make([]byte, TCP_MTU)
 		var frame []byte
 
-		n, _, err := udpConn.ReadFromUDP(packet)
+		conn, err := tcpConn.AcceptTCP()
 		if err != nil {
-			log.Fatalf("could not read from UDP socket: %v\n", err)
+			log.Fatal(err)
+		}
+
+		n, err := conn.Read(packet)
+		if err != nil {
+			log.Fatalf("could not read from TCP socket: %v\n", err)
+		}
+
+		if err := conn.Close(); err != nil {
+			log.Fatal(err)
 		}
 
 		frame, invalid := DecapsulateFrame(packet[0:n])
@@ -161,9 +170,9 @@ func ForwardUDPtoTAP(udpConn *net.UDPConn, tapDevice *TAPDevice, remoteAddr *net
 	}
 }
 
-// ForwardTAPtoUDP forwards frames from a TAP device to a UDP connection
-func ForwardTAPtoUDP(udpConn *net.UDPConn, tapDevice *TAPDevice, remoteAddr *net.UDPAddr) {
-	log.Printf("forwarding TAP to UDP with remote %v:%v\n", remoteAddr.IP, remoteAddr.Port)
+// ForwardTAPtoTCP forwards frames from a TAP device to a TCP connection
+func ForwardTAPtoTCP(tapDevice *TAPDevice, remoteAddr *net.TCPAddr) {
+	log.Printf("forwarding TAP to TCP with remote %v:%v\n", remoteAddr.IP, remoteAddr.Port)
 
 	for {
 		frame := make([]byte, TAP_MTU+14)
@@ -179,9 +188,22 @@ func ForwardTAPtoUDP(udpConn *net.UDPConn, tapDevice *TAPDevice, remoteAddr *net
 			continue
 		}
 
-		_, err = udpConn.WriteToUDP(encFrame, remoteAddr)
+		conn, err := net.Dial("tcp", remoteAddr.String())
 		if err != nil {
-			log.Fatalf("could not write to UDP socket: %v\n", err)
+			log.Printf("could not dial %v, retrying", remoteAddr)
+
+			ForwardTAPtoTCP(tapDevice, remoteAddr)
+
+			continue
+		}
+
+		_, err = conn.Write(encFrame)
+		if err != nil {
+			log.Fatalf("could not write to TCP socket: %v\n", err)
+		}
+
+		if err := conn.Close(); err != nil {
+			log.Fatal(err)
 		}
 	}
 }
@@ -192,19 +214,19 @@ func main() {
 
 	flag.Parse()
 
-	localAddr, err := net.ResolveUDPAddr("udp", *localAddrFlag)
+	localAddr, err := net.ResolveTCPAddr("tcp", *localAddrFlag)
 	if err != nil {
 		log.Fatalf("could not resolve local address: %v\n", err)
 	}
 
-	remoteAddr, err := net.ResolveUDPAddr("udp", *remoteAddrFlag)
+	remoteAddr, err := net.ResolveTCPAddr("tcp", *remoteAddrFlag)
 	if err != nil {
 		log.Fatalf("could not resolve remote address: %v\n", err)
 	}
 
-	udpConn, err := net.ListenUDP("udp", localAddr)
+	tcpListener, err := net.ListenTCP("tcp", localAddr)
 	if err != nil {
-		log.Fatalf("error creating a UDP socket: %v\n", err)
+		log.Fatalf("error creating a TCP socket: %v\n", err)
 	}
 
 	tapDev := new(TAPDevice)
@@ -215,6 +237,6 @@ func main() {
 
 	log.Printf("started tunnel with TAP device %v", tapDev.devName)
 
-	go ForwardUDPtoTAP(udpConn, tapDev, remoteAddr)
-	ForwardTAPtoUDP(udpConn, tapDev, remoteAddr)
+	go ForwardTCPtoTAP(tcpListener, tapDev, remoteAddr)
+	ForwardTAPtoTCP(tapDev, remoteAddr)
 }
