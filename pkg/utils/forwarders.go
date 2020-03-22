@@ -66,22 +66,12 @@ func ForwardTAPtoTCP(tapDevice *TAPDevice, remoteAddr *net.TCPAddr) {
 			continue
 		}
 
-		conn, err := net.Dial("tcp", remoteAddr.String())
-		if err != nil {
+		s := NewSwitchConnection(remoteAddr)
+
+		if err := s.Write(encFrame); err != nil {
 			log.Printf("could not dial %v, retrying", remoteAddr)
 
 			ForwardTAPtoTCP(tapDevice, remoteAddr)
-
-			continue
-		}
-
-		_, err = conn.Write(encFrame)
-		if err != nil {
-			log.Fatalf("could not write to TCP socket: %v\n", err)
-		}
-
-		if err := conn.Close(); err != nil {
-			log.Fatal(err)
 		}
 	}
 }
