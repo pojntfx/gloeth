@@ -9,6 +9,7 @@ import (
 
 	"github.com/pojntfx/gloeth/pkg/constants"
 	"github.com/pojntfx/gloeth/pkg/forwarding"
+	"github.com/pojntfx/gloeth/pkg/switcher"
 	"github.com/pojntfx/gloeth/pkg/tap"
 )
 
@@ -28,11 +29,6 @@ func main() {
 		log.Fatalf("could not resolve remote address: %v\n", err)
 	}
 
-	tcpListener, err := net.ListenTCP("tcp", localAddr)
-	if err != nil {
-		log.Fatalf("error creating a TCP socket: %v\n", err)
-	}
-
 	tapDev := tap.NewDevice()
 	err = tapDev.Open(constants.TAP_MTU)
 	if err != nil {
@@ -41,6 +37,17 @@ func main() {
 
 	log.Printf("started tunnel with TAP device %v", tapDev.GetName())
 
-	go forwarding.ForwardTCPtoTAP(tcpListener, tapDev, remoteAddr)
-	forwarding.ForwardTAPtoTCP(tapDev, remoteAddr)
+	switcherConnection := switcher.NewConnection(localAddr, remoteAddr)
+	errChan := make(chan error)
+
+	forwarder := forwarding.NewTAPviaTCPForwarder(tapDev, localAddr, remoteAddr, switcherConnection, errChan)
+
+	go func() {
+		for err := range errChan {
+			log.Println(err)
+		}
+	}()
+
+	go forwarder.TCPtoTAP()
+	forwarder.TAPtoTCP()
 }
