@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/pojntfx/gloeth/pkg/v2/pkg/constants"
+	"github.com/pojntfx/gloeth/pkg/constants"
 )
 
 // Encoder encodes and decodes frames

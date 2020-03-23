@@ -3,7 +3,7 @@ package connections
 import (
 	"net"
 
-	"github.com/pojntfx/gloeth/pkg/v2/pkg/constants"
+	"github.com/pojntfx/gloeth/pkg/constants"
 )
 
 // TAPviaTCPConnection is connection that writes from TAP to TCP and vice versa
