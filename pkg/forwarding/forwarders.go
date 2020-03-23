@@ -1,25 +1,21 @@
-package utils
+package forwarding
 
 import (
 	"log"
 	"net"
-	"time"
-)
 
-const (
-	TIMESTAMP_SIZE    = 8               // TIMESTAMP_SIZE is the size of the timestamp
-	TIMESTAMP_TIMEOUT = time.Second * 3 // TIMESTAMP_TIMEOUT is the maximum duration after which a frame will be discarded
-
-	TCP_MTU = 1472                          // The TCP MTU
-	TAP_MTU = TCP_MTU - 14 - TIMESTAMP_SIZE // TAP_MTU is TCP_MTU - ethernet header (14) - TIMESTAMP_SIZE
+	"github.com/pojntfx/gloeth/pkg/constants"
+	"github.com/pojntfx/gloeth/pkg/encoding"
+	"github.com/pojntfx/gloeth/pkg/switcher"
+	"github.com/pojntfx/gloeth/pkg/tap"
 )
 
 // ForwardTCPtoTAP forwards TCP packets to a TAP device
-func ForwardTCPtoTAP(tcpConn *net.TCPListener, tapDevice *TAPDevice, remoteAddr *net.TCPAddr) {
+func ForwardTCPtoTAP(tcpConn *net.TCPListener, tapDevice *tap.Device, remoteAddr *net.TCPAddr) {
 	log.Printf("forwarding TCP to TAP with remote %v:%v\n", remoteAddr.IP, remoteAddr.Port)
 
 	for {
-		packet := make([]byte, TCP_MTU)
+		packet := make([]byte, constants.TAP_MTU)
 		var frame []byte
 
 		conn, err := tcpConn.AcceptTCP()
@@ -36,7 +32,7 @@ func ForwardTCPtoTAP(tcpConn *net.TCPListener, tapDevice *TAPDevice, remoteAddr 
 			log.Fatal(err)
 		}
 
-		frame, invalid := DecapsulateFrame(packet[0:n])
+		frame, invalid := encoding.DecapsulateFrame(packet[0:n])
 		if invalid != nil {
 			continue
 		}
@@ -49,11 +45,11 @@ func ForwardTCPtoTAP(tcpConn *net.TCPListener, tapDevice *TAPDevice, remoteAddr 
 }
 
 // ForwardTAPtoTCP forwards frames from a TAP device to a TCP connection
-func ForwardTAPtoTCP(tapDevice *TAPDevice, remoteAddr *net.TCPAddr) {
+func ForwardTAPtoTCP(tapDevice *tap.Device, remoteAddr *net.TCPAddr) {
 	log.Printf("forwarding TAP to TCP with remote %v:%v\n", remoteAddr.IP, remoteAddr.Port)
 
 	for {
-		frame := make([]byte, TAP_MTU+14)
+		frame := make([]byte, constants.TAP_MTU+14)
 		var encFrame []byte
 
 		n, err := tapDevice.Read(frame)
@@ -61,12 +57,12 @@ func ForwardTAPtoTCP(tapDevice *TAPDevice, remoteAddr *net.TCPAddr) {
 			log.Fatalf("could not read from TAP device: %v\n", err)
 		}
 
-		encFrame, invalid := EncapsulateFrame(frame[0:n])
+		encFrame, invalid := encoding.EncapsulateFrame(frame[0:n])
 		if invalid != nil {
 			continue
 		}
 
-		s := NewSwitchConnection(remoteAddr)
+		s := switcher.NewConnection(remoteAddr)
 
 		if err := s.Write(encFrame); err != nil {
 			log.Printf("could not dial %v, retrying", remoteAddr)
