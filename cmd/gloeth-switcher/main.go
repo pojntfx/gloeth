@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"net"
-	"time"
 
 	"github.com/pojntfx/ethernet"
 	"github.com/pojntfx/gloeth/pkg/constants"
@@ -37,21 +36,9 @@ func main() {
 		log.Println(frame.Source, frame.Destination, string(frame.Payload))
 
 		go func() {
-			var err error
-
-			for i := 0; i < 10; i++ {
-				err = switcher.Write(frame)
-				if err == nil {
-					return
-				}
-
-				log.Println(err)
-
-				time.Sleep(time.Millisecond * 50)
+			if err := switcher.Write(frame); err != nil {
+				log.Printf("frame discarded, could not write: %v\n", err)
 			}
-
-			log.Printf("frame discarded, could not write: %v\n", err)
 		}()
-
 	}
 }
