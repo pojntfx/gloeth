@@ -50,7 +50,7 @@ func (t *TAPviaTCPConnection) Read() error {
 	}
 
 	for {
-		frame := make([]byte, constants.TAP_FRAME_SIZE)
+		frame := make([]byte, constants.FRAME_SIZE)
 
 		conn, err := l.AcceptTCP()
 		if err != nil {

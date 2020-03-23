@@ -99,7 +99,7 @@ func (t *TAPDevice) Close() error {
 // Read reads from the TAP device
 func (t *TAPDevice) Read() error {
 	for {
-		frame := make([]byte, constants.TCP_FRAME_SIZE)
+		frame := make([]byte, constants.FRAME_SIZE)
 
 		_, err := syscall.Read(t.fd, frame)
 		if err != nil {
