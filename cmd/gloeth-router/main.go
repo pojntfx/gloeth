@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"flag"
-	"fmt"
 	"log"
 	"net"
 
@@ -30,13 +29,13 @@ func main() {
 
 	enc := protocol.NewEncoder()
 
-	for {
-		frame := make([]byte, constants.FRAME_SIZE)
+	conn, err := l.AcceptTCP()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-		conn, err := l.AcceptTCP()
-		if err != nil {
-			log.Fatal(err)
-		}
+	for {
+		frame := make([]byte, constants.FRAME_SIZE+constants.TIMESTAMP_SIZE)
 
 		_, err = conn.Read(frame)
 		if err != nil {
@@ -49,15 +48,14 @@ func main() {
 		}
 
 		var ethernetFrame ethernet.Frame
-
-		ethernetFrame.Resize(constants.FRAME_SIZE - constants.TIMESTAMP_SIZE)
+		ethernetFrame.Resize(constants.FRAME_SIZE)
 
 		r := bytes.NewReader(decFrame)
 		if _, err := r.Read(ethernetFrame); err != nil {
 			log.Fatal(err)
 		}
 
-		fmt.Println(ethernetFrame.Source(), ethernetFrame.Destination(), ethernetFrame.Ethertype(), string(ethernetFrame.Payload()))
+		log.Println(ethernetFrame.Source(), ethernetFrame.Destination(), ethernetFrame.Ethertype(), string(ethernetFrame.Payload()))
 
 		// Now write to the one other connection
 		// if _, err := conn.Write(frame); err != nil {

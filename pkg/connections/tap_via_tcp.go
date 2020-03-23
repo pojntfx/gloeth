@@ -1,6 +1,7 @@
 package connections
 
 import (
+	"log"
 	"net"
 
 	"github.com/pojntfx/gloeth/pkg/constants"
@@ -10,6 +11,7 @@ import (
 type TAPviaTCPConnection struct {
 	localAddr, remoteAddr *net.TCPAddr
 	framesChan            chan []byte
+	conn                  *net.TCPConn
 }
 
 // NewTAPviaTCPConnection creates a new TAP via TCP connection
@@ -23,6 +25,13 @@ func NewTAPviaTCPConnection(localAddr, remoteAddr *net.TCPAddr, framesChan chan 
 
 // Open opens the TAP via TCP connection
 func (t *TAPviaTCPConnection) Open() error {
+	conn, err := net.DialTCP("tcp", nil, t.remoteAddr)
+	if err != nil {
+		return t.Open()
+	}
+
+	t.conn = conn
+
 	return nil
 }
 
@@ -33,13 +42,25 @@ func (t *TAPviaTCPConnection) Close() error {
 
 // Write writes to the TAP via TCP connection
 func (t *TAPviaTCPConnection) Write(frame []byte) (int, error) {
-	conn, err := net.Dial("tcp", t.remoteAddr.String())
+	log.Println("Writing frame")
+
+	n, err := t.conn.Write(frame)
 	if err != nil {
-		return t.Write(frame) // Retry
+		// Retry
+		if err := t.Close(); err != nil {
+			return t.Write(frame)
+		}
+
+		if err := t.Open(); err != nil {
+			return t.Write(frame)
+		}
+
+		return t.Write(frame)
 	}
 
-	defer conn.Close()
-	return conn.Write(frame)
+	log.Println("Wrote frame")
+
+	return n, nil
 }
 
 // Read reads from the TAP via TCP connection
