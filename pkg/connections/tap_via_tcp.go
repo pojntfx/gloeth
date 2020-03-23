@@ -3,23 +3,22 @@ package connections
 import (
 	"log"
 	"net"
-
-	"github.com/pojntfx/gloeth/pkg/constants"
 )
 
 // TAPviaTCPConnection is connection that writes from TAP to TCP and vice versa
 type TAPviaTCPConnection struct {
-	localAddr, remoteAddr *net.TCPAddr
-	framesChan            chan []byte
-	conn                  *net.TCPConn
+	remoteAddr *net.TCPAddr
+	framesChan chan []byte
+	conn       *net.TCPConn
+	frameSize  uint
 }
 
 // NewTAPviaTCPConnection creates a new TAP via TCP connection
-func NewTAPviaTCPConnection(localAddr, remoteAddr *net.TCPAddr, framesChan chan []byte) *TAPviaTCPConnection {
+func NewTAPviaTCPConnection(remoteAddr *net.TCPAddr, frameSize uint, framesChan chan []byte) *TAPviaTCPConnection {
 	return &TAPviaTCPConnection{
-		localAddr:  localAddr,
 		remoteAddr: remoteAddr,
 		framesChan: framesChan,
+		frameSize:  frameSize,
 	}
 }
 
@@ -65,23 +64,10 @@ func (t *TAPviaTCPConnection) Write(frame []byte) (int, error) {
 
 // Read reads from the TAP via TCP connection
 func (t *TAPviaTCPConnection) Read() error {
-	l, err := net.ListenTCP("tcp", t.localAddr)
-	if err != nil {
-		return err
-	}
-
 	for {
-		frame := make([]byte, constants.FRAME_SIZE)
-
-		conn, err := l.AcceptTCP()
-		if err != nil {
-			return err
-		}
-
-		defer conn.Close()
-		_, err = conn.Read(frame)
-		if err != nil {
-			return err
+		frame := make([]byte, t.frameSize)
+		if _, err := t.conn.Read(frame); err != nil {
+			log.Fatal(err)
 		}
 
 		t.framesChan <- frame
