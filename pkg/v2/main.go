@@ -14,6 +14,7 @@ import (
 func main() {
 	localAddrFlag := flag.String("localAddr", "0.0.0.0:1234", "Local address")
 	remoteAddrFlag := flag.String("remoteAddr", "0.0.0.0:12345", "Remote address")
+	name := flag.String("name", "tap0", "Device name")
 	flag.Parse()
 
 	localAddr, err := net.ResolveTCPAddr("tcp", *localAddrFlag)
@@ -28,7 +29,7 @@ func main() {
 
 	framesFromDeviceChan, framesFromConnectionChan := make(chan []byte), make(chan []byte)
 
-	dev := devices.NewTAPDevice(constants.MTU, framesFromDeviceChan)
+	dev := devices.NewTAPDevice(constants.MTU, *name, framesFromDeviceChan)
 	conn := connections.NewTAPviaTCPConnection(localAddr, remoteAddr, framesFromConnectionChan)
 	enc := protocol.NewEncoder()
 
