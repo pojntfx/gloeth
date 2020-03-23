@@ -1,5 +1,3 @@
-// Based on https://github.com/vsergeev/tinytaptunnel
-
 package main
 
 import (
@@ -7,47 +5,75 @@ import (
 	"log"
 	"net"
 
+	"github.com/pojntfx/gloeth/pkg/connections"
 	"github.com/pojntfx/gloeth/pkg/constants"
-	"github.com/pojntfx/gloeth/pkg/forwarding"
-	"github.com/pojntfx/gloeth/pkg/switcher"
-	"github.com/pojntfx/gloeth/pkg/tap"
+	"github.com/pojntfx/gloeth/pkg/devices"
+	"github.com/pojntfx/gloeth/pkg/protocol"
 )
 
 func main() {
 	localAddrFlag := flag.String("localAddr", "0.0.0.0:1234", "Local address")
 	remoteAddrFlag := flag.String("remoteAddr", "0.0.0.0:12345", "Remote address")
-
+	name := flag.String("name", "tap0", "Device name")
 	flag.Parse()
 
 	localAddr, err := net.ResolveTCPAddr("tcp", *localAddrFlag)
 	if err != nil {
-		log.Fatalf("could not resolve local address: %v\n", err)
+		log.Fatal(err)
 	}
 
 	remoteAddr, err := net.ResolveTCPAddr("tcp", *remoteAddrFlag)
 	if err != nil {
-		log.Fatalf("could not resolve remote address: %v\n", err)
+		log.Fatal(err)
 	}
 
-	tapDev := tap.NewDevice()
-	err = tapDev.Open(constants.TAP_MTU)
-	if err != nil {
-		log.Fatalf("could not open a TAP device: %v\n", err)
+	framesFromDeviceChan, framesFromConnectionChan := make(chan []byte), make(chan []byte)
+
+	dev := devices.NewTAPDevice(constants.MTU, *name, framesFromDeviceChan)
+	conn := connections.NewTAPviaTCPConnection(localAddr, remoteAddr, framesFromConnectionChan)
+	enc := protocol.NewEncoder()
+
+	defer dev.Close()
+	if err := dev.Open(); err != nil {
+		log.Fatal(err)
 	}
+	go dev.Read()
 
-	log.Printf("started tunnel with TAP device %v", tapDev.GetName())
-
-	switcherConnection := switcher.NewConnection(localAddr, remoteAddr)
-	errChan := make(chan error)
-
-	forwarder := forwarding.NewTAPviaTCPForwarder(tapDev, localAddr, remoteAddr, switcherConnection, errChan)
+	defer conn.Close()
+	if err := conn.Open(); err != nil {
+		log.Fatal(err)
+	}
+	go conn.Read()
 
 	go func() {
-		for err := range errChan {
-			log.Println(err)
+		for {
+			inFrame := <-framesFromDeviceChan
+
+			go func() {
+				outFrame, invalid := enc.Encapsulate(inFrame)
+				if invalid != nil {
+					return
+				}
+
+				if _, err := conn.Write(outFrame); err != nil {
+					log.Fatal(err)
+				}
+			}()
 		}
 	}()
 
-	go forwarder.TCPtoTAP()
-	forwarder.TAPtoTCP()
+	for {
+		inFrame := <-framesFromConnectionChan
+
+		go func() {
+			outFrame, invalid := enc.Decapsulate(inFrame)
+			if invalid != nil {
+				return
+			}
+
+			if _, err := dev.Write(outFrame); err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
 }

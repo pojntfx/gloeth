@@ -1,7 +1,7 @@
 package devices
 
 import (
-	"github.com/pojntfx/gloeth/pkg/v2/pkg/constants"
+	"github.com/pojntfx/gloeth/pkg/constants"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
 )
