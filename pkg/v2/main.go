@@ -28,7 +28,7 @@ func main() {
 
 	framesFromDeviceChan, framesFromConnectionChan := make(chan []byte), make(chan []byte)
 
-	dev := devices.NewTAPDevice(constants.TAP_FRAME_SIZE, framesFromDeviceChan)
+	dev := devices.NewTAPDevice(constants.MTU, framesFromDeviceChan)
 	conn := connections.NewTAPviaTCPConnection(localAddr, remoteAddr, framesFromConnectionChan)
 	enc := protocol.NewEncoder()
 

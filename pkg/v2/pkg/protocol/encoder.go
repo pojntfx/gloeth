@@ -18,7 +18,7 @@ func NewEncoder() *Encoder {
 }
 
 // Encapsulate encapsulates a frame
-// A frame is composed of a nanosecond timestamp (8 bytes) and a plaintext frame (1-1464 bytes)
+// A frame is composed of a nanosecond timestamp (`constants.TIMESTAMP_SIZE` bytes) and a plaintext frame (`constants.MTU - constants.TIMESTAMP_SIZE` bytes)
 func (e *Encoder) Encapsulate(frame []byte) ([]byte, error) {
 	timeInByte := make([]byte, constants.TIMESTAMP_SIZE)
 	binary.BigEndian.PutUint64(timeInByte, uint64(time.Now().UnixNano()))
