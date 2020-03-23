@@ -7,7 +7,9 @@ import (
 	"log"
 	"net"
 
-	"github.com/pojntfx/gloeth/pkg/utils"
+	"github.com/pojntfx/gloeth/pkg/constants"
+	"github.com/pojntfx/gloeth/pkg/forwarding"
+	"github.com/pojntfx/gloeth/pkg/tap"
 )
 
 func main() {
@@ -31,14 +33,14 @@ func main() {
 		log.Fatalf("error creating a TCP socket: %v\n", err)
 	}
 
-	tapDev := new(utils.TAPDevice)
-	err = tapDev.Open(utils.TAP_MTU)
+	tapDev := tap.NewDevice()
+	err = tapDev.Open(constants.TAP_MTU)
 	if err != nil {
 		log.Fatalf("could not open a TAP device: %v\n", err)
 	}
 
 	log.Printf("started tunnel with TAP device %v", tapDev.GetName())
 
-	go utils.ForwardTCPtoTAP(tcpListener, tapDev, remoteAddr)
-	utils.ForwardTAPtoTCP(tapDev, remoteAddr)
+	go forwarding.ForwardTCPtoTAP(tcpListener, tapDev, remoteAddr)
+	forwarding.ForwardTAPtoTCP(tapDev, remoteAddr)
 }

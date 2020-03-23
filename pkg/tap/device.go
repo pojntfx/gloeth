@@ -1,4 +1,4 @@
-package utils
+package tap
 
 import (
 	"fmt"
@@ -6,19 +6,24 @@ import (
 	"unsafe"
 )
 
-// TAPDevice is a TAP device
-type TAPDevice struct {
+// Device is a TAP device
+type Device struct {
 	fd      int
 	devName string
 }
 
+// Create a new device
+func NewDevice() *Device {
+	return &Device{}
+}
+
 // GetName returns the TAP device name
-func (t *TAPDevice) GetName() string {
+func (t *Device) GetName() string {
 	return t.devName
 }
 
 // Open opens the TAP device
-func (t *TAPDevice) Open(mtu uint) error {
+func (t *Device) Open(mtu uint) error {
 	fd, err := syscall.Open("/dev/net/tun", syscall.O_RDWR, syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IRGRP|syscall.S_IROTH)
 	if err != nil {
 		return fmt.Errorf("could not open /dev/net/tun: %v", err)
@@ -87,16 +92,16 @@ func (t *TAPDevice) Open(mtu uint) error {
 }
 
 // Close closes the TAP device
-func (t *TAPDevice) Close() {
+func (t *Device) Close() {
 	syscall.Close(t.fd)
 }
 
 // Read reads from the TAP device
-func (t *TAPDevice) Read(b []byte) (int, error) {
+func (t *Device) Read(b []byte) (int, error) {
 	return syscall.Read(t.fd, b)
 }
 
 // Write writes to the TAP device
-func (t *TAPDevice) Write(b []byte) (n int, err error) {
+func (t *Device) Write(b []byte) (n int, err error) {
 	return syscall.Write(t.fd, b)
 }
