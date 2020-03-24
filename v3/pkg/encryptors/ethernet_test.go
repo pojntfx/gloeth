@@ -206,7 +206,7 @@ func TestEthernet_Decrypt(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(actualFrame, tt.want) {
-				t.Errorf("decrypt(Ethernet.Encrypt()) = %v, want %v", actualFrame, tt.want)
+				t.Errorf("Ethernet.Decrypt() = %v, want %v", actualFrame, tt.want)
 			}
 		})
 	}
