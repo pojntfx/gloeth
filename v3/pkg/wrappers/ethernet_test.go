@@ -3,6 +3,7 @@ package wrappers
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"testing"
 
 	gm "github.com/cseeger-epages/mac-gen-go"
@@ -40,46 +41,25 @@ func getWrappedFrame(dest net.HardwareAddr, frame [FrameSize]byte) [WrappedFrame
 }
 
 func TestNewEthernet(t *testing.T) {
-	e := NewEthernet()
-
-	if e == nil {
-		t.Error("Ethernet is nil")
+	tests := []struct {
+		name string
+		want *Ethernet
+	}{
+		{
+			"New",
+			&Ethernet{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NewEthernet(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewEthernet() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-func TestWrap(t *testing.T) {
-	expectedFrame := getFrame()
-	expectedDest, err := getDest()
-	if err != nil {
-		t.Error(err)
-	}
-
-	e := NewEthernet()
-
-	wrappedFrame, err := e.Wrap(&expectedDest, expectedFrame)
-	if err != nil {
-		t.Error(err)
-	}
-
-	actualHeader := wrappedFrame[:HeaderSize]
-	actualDest, err := net.ParseMAC(string(actualHeader[:DestSize]))
-	if err != nil {
-		t.Error(err)
-	}
-
-	if actualDest.String() != expectedDest.String() {
-		t.Error("Dest not wrapped correctly")
-	}
-
-	actualFrame := [FrameSize]byte{}
-	copy(actualFrame[:], wrappedFrame[HeaderSize:])
-	if actualFrame != expectedFrame {
-		t.Error("Frame not wrapped correctly")
-	}
-}
-
-// TODO: Add test for faulty MAC address
-func TestUnwrap(t *testing.T) {
+func TestEthernet_Wrap(t *testing.T) {
 	expectedFrame := getFrame()
 	expectedDest, err := getDest()
 	if err != nil {
@@ -87,18 +67,97 @@ func TestUnwrap(t *testing.T) {
 	}
 	wrappedFrame := getWrappedFrame(expectedDest, expectedFrame)
 
-	e := NewEthernet()
+	type args struct {
+		dest  *net.HardwareAddr
+		frame [FrameSize]byte
+	}
+	tests := []struct {
+		name    string
+		e       *Ethernet
+		args    args
+		want    [WrappedFrameSize]byte
+		wantErr bool
+	}{
+		{
+			"Wrap",
+			NewEthernet(),
+			args{
+				dest:  &expectedDest,
+				frame: expectedFrame,
+			},
+			wrappedFrame,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &Ethernet{}
+			got, err := e.Wrap(tt.args.dest, tt.args.frame)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Ethernet.Wrap() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Ethernet.Wrap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
-	actualDest, actualFrame, err := e.Unwrap(wrappedFrame)
+func TestEthernet_Unwrap(t *testing.T) {
+	expectedFrame := getFrame()
+	expectedDest, err := getDest()
 	if err != nil {
 		t.Error(err)
 	}
+	wrappedFrame := getWrappedFrame(expectedDest, expectedFrame)
 
-	if actualDest.String() != expectedDest.String() {
-		t.Error("Dest not unwrapped correctly")
+	type args struct {
+		frame [WrappedFrameSize]byte
 	}
-
-	if actualFrame != expectedFrame {
-		t.Error("Frame not unwrapped correctly")
+	tests := []struct {
+		name    string
+		e       *Ethernet
+		args    args
+		want    *net.HardwareAddr
+		want1   [FrameSize]byte
+		wantErr bool
+	}{
+		{
+			"Unwrap",
+			NewEthernet(),
+			args{
+				wrappedFrame,
+			},
+			&expectedDest,
+			expectedFrame,
+			false,
+		},
+		{
+			"Unwrap (faulty frame)",
+			NewEthernet(),
+			args{
+				[WrappedFrameSize]byte{},
+			},
+			nil,
+			[FrameSize]byte{},
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &Ethernet{}
+			got, got1, err := e.Unwrap(tt.args.frame)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Ethernet.Unwrap() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Ethernet.Unwrap() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("Ethernet.Unwrap() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
 	}
 }
