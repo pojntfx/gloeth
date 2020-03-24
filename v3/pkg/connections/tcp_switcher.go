@@ -37,7 +37,16 @@ func (t *TCPSwitcher) Close() error {
 
 // Read reads from the TCP switcher
 func (t *TCPSwitcher) Read() error {
-	return nil
+	for {
+		readFrame := [wrappers.WrappedFrameSize]byte{}
+
+		_, err := t.conn.Read(readFrame[:])
+		if err != nil {
+			return err
+		}
+
+		t.readChan <- readFrame
+	}
 }
 
 // Write writes to the TCP switcher
