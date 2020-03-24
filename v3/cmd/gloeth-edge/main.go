@@ -23,9 +23,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	devChan, connChan := make(chan []byte), make(chan []byte)
+	devChan, connChan := make(chan [encryptors.PlaintextFrameSize]byte), make(chan [wrappers.WrappedFrameSize]byte)
 
-	dev := devices.NewTAP(devChan, *name)
+	dev := devices.NewTAP(devChan, devices.MTU, *name)
 	conn := connections.NewTCPSwitcher(connChan, saddr)
 
 	defer dev.Close()
@@ -60,7 +60,7 @@ func main() {
 				continue
 			}
 
-			outFrame, err := wpr.Wrap(encrFrame, addr)
+			outFrame, err := wpr.Wrap(addr, encrFrame)
 			if err != nil {
 				log.Println(err)
 
@@ -78,7 +78,7 @@ func main() {
 	for {
 		inFrame := <-connChan
 
-		dewrpFrame, _, err := wpr.Unwrap(inFrame)
+		_, dewrpFrame, err := wpr.Unwrap(inFrame)
 		if err != nil {
 			log.Println(err)
 

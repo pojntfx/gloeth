@@ -18,7 +18,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	readChan := make(chan []byte)
+	readChan := make(chan [wrappers.WrappedFrameSize]byte)
 
 	switcher := switchers.NewTCP(readChan, laddr)
 
@@ -32,7 +32,7 @@ func main() {
 	for {
 		inFrame := <-readChan
 
-		unwrpFrame, addr, err := wpr.Unwrap(inFrame)
+		addr, _, err := wpr.Unwrap(inFrame)
 		if err != nil {
 			log.Println(err)
 
@@ -47,7 +47,7 @@ func main() {
 		}
 
 		for _, conn := range conns {
-			if _, err := conn.Write(unwrpFrame); err != nil {
+			if err := switcher.Write(conn, inFrame); err != nil {
 				log.Println(err)
 			}
 		}

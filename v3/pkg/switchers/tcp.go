@@ -1,15 +1,19 @@
 package switchers
 
-import "net"
+import (
+	"net"
+
+	"github.com/pojntfx/gloeth/v3/pkg/wrappers"
+)
 
 // TCP switches TCP connections
 type TCP struct {
-	readChan   chan []byte
+	readChan   chan [wrappers.WrappedFrameSize]byte
 	listenAddr *net.TCPAddr
 }
 
 // NewTCP creates a new TCP switcher
-func NewTCP(readChan chan []byte, listenAddr *net.TCPAddr) *TCP {
+func NewTCP(readChan chan [wrappers.WrappedFrameSize]byte, listenAddr *net.TCPAddr) *TCP {
 	return &TCP{readChan, listenAddr}
 }
 
@@ -29,7 +33,7 @@ func (t *TCP) Read() error {
 }
 
 // Write writes to a connection on the TCP switcher
-func (t *TCP) Write(conn *net.TCPConn, frame []byte) error {
+func (t *TCP) Write(conn *net.TCPConn, frame [wrappers.WrappedFrameSize]byte) error {
 	return nil
 }
 
