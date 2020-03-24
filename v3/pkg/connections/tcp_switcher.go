@@ -32,7 +32,7 @@ func (t *TCPSwitcher) Open() error {
 
 // Close closes the connection to the TCP switcher
 func (t *TCPSwitcher) Close() error {
-	return nil
+	return t.conn.Close()
 }
 
 // Read reads from the TCP switcher

@@ -27,6 +27,15 @@ func waitForConnection(listener *net.TCPListener) error {
 	return nil
 }
 
+func getConnection(raddr *net.TCPAddr) (*net.TCPConn, error) {
+	conn, err := net.DialTCP("tcp", nil, raddr)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
 func TestNewTCPSwitcher(t *testing.T) {
 	expectedReadChan := make(chan [wrappers.WrappedFrameSize]byte)
 	expectedRemoteAddr, _, err := getListenAddrWithFreePort()
@@ -66,8 +75,8 @@ func TestNewTCPSwitcher(t *testing.T) {
 }
 
 func TestTCPSwitcher_Open(t *testing.T) {
-	expectedReadChan := make(chan [wrappers.WrappedFrameSize]byte)
-	expectedRemoteAddr, listener, err := getListenAddrWithFreePort()
+	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	remoteAddr, listener, err := getListenAddrWithFreePort()
 	if err != nil {
 		t.Error(err)
 	}
@@ -85,8 +94,8 @@ func TestTCPSwitcher_Open(t *testing.T) {
 		{
 			"Open",
 			fields{
-				expectedReadChan,
-				expectedRemoteAddr,
+				readChan,
+				remoteAddr,
 				nil,
 			},
 			false,
@@ -121,6 +130,48 @@ func TestTCPSwitcher_Open(t *testing.T) {
 
 			if <-timeoutChan {
 				log.Fatalf("TCPSwitcher.Open() did not connect to TCP server within %v", timeout)
+			}
+		})
+	}
+}
+
+func TestTCPSwitcher_Close(t *testing.T) {
+	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	remoteAddr, _, err := getListenAddrWithFreePort()
+	if err != nil {
+		t.Error(err)
+	}
+	conn, err := getConnection(remoteAddr)
+
+	type fields struct {
+		readChan   chan [wrappers.WrappedFrameSize]byte
+		remoteAddr *net.TCPAddr
+		conn       *net.TCPConn
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			"Close",
+			fields{
+				readChan:   readChan,
+				conn:       conn,
+				remoteAddr: remoteAddr,
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &TCPSwitcher{
+				readChan:   tt.fields.readChan,
+				remoteAddr: tt.fields.remoteAddr,
+				conn:       tt.fields.conn,
+			}
+			if err := s.Close(); (err != nil) != tt.wantErr {
+				t.Errorf("TCPSwitcher.Close() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
