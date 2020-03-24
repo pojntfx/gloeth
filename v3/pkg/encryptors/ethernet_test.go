@@ -143,34 +143,70 @@ func TestEthernet_Encrypt(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(actualFrame, tt.want) {
-				t.Errorf("decrypt(Ethernet.Encrypt()) = %v, want %v", encryptedFrame, actualFrame)
+				t.Errorf("decrypt(Ethernet.Encrypt()) = %v, want %v", actualFrame, tt.want)
 			}
 		})
 	}
 }
 
 func TestEthernet_Decrypt(t *testing.T) {
+	key := getKey()
+	expectedFrame := getFrame()
+	frameIn, err := encryptFrame(key, expectedFrame)
+	if err != nil {
+		t.Error(err)
+	}
+
+	type fields struct {
+		key string
+	}
 	type args struct {
 		frame [wrappers.EncryptedFrameSize]byte
 	}
 	tests := []struct {
 		name    string
-		e       *Ethernet
+		fields  fields
 		args    args
 		want    [PlaintextFrameSize]byte
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			"Decrypt",
+			fields{
+				key,
+			},
+			args{
+				frameIn,
+			},
+			expectedFrame,
+			false,
+		},
+		{
+			"Decrypt (faulty key)",
+			fields{
+				"",
+			},
+			args{
+				frameIn,
+			},
+			[PlaintextFrameSize]byte{},
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.e.Decrypt(tt.args.frame)
+			e := &Ethernet{
+				key: tt.fields.key,
+			}
+
+			actualFrame, err := e.Decrypt(tt.args.frame)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Ethernet.Decrypt() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Ethernet.Decrypt() = %v, want %v", got, tt.want)
+
+			if !reflect.DeepEqual(actualFrame, tt.want) {
+				t.Errorf("decrypt(Ethernet.Encrypt()) = %v, want %v", actualFrame, tt.want)
 			}
 		})
 	}
