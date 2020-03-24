@@ -51,5 +51,7 @@ func (t *TCPSwitcher) Read() error {
 
 // Write writes to the TCP switcher
 func (t *TCPSwitcher) Write(frame [wrappers.WrappedFrameSize]byte) error {
-	return nil
+	_, err := t.conn.Write(frame[:])
+
+	return err
 }

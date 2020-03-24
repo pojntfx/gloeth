@@ -46,6 +46,17 @@ func writeFrame(conn *net.TCPConn, frame [wrappers.WrappedFrameSize]byte) error 
 	return err
 }
 
+func readFrame(conn *net.TCPConn) ([wrappers.WrappedFrameSize]byte, error) {
+	frame := [wrappers.WrappedFrameSize]byte{}
+
+	_, err := conn.Read(frame[:])
+	if err != nil {
+		return [wrappers.WrappedFrameSize]byte{}, err
+	}
+
+	return frame, nil
+}
+
 func TestNewTCPSwitcher(t *testing.T) {
 	expectedReadChan := make(chan [wrappers.WrappedFrameSize]byte)
 	expectedRemoteAddr, _, err := getListenAddrWithFreePort()
@@ -229,30 +240,10 @@ func TestTCPSwitcher_Read(t *testing.T) {
 				conn:       tt.fields.conn,
 			}
 
-			timeout := time.Millisecond * 1000
-			timeoutChan := make(chan bool)
-			go func() {
-				time.Sleep(timeout)
-
-				timeoutChan <- true
-			}()
-
 			go func() {
 				if err := s.Read(); (err != nil) != tt.wantErr {
 					t.Errorf("TCPSwitcher.Read() error = %v, wantErr %v", err, tt.wantErr)
 				}
-			}()
-
-			go func() {
-				for i := 0; i < int(tt.framesToTransceive); i++ {
-					got := <-readChan
-
-					if !reflect.DeepEqual(got, tt.want) {
-						t.Errorf("TCPSwitcher.Read() = %v, want %v", got, tt.want)
-					}
-				}
-
-				timeoutChan <- false
 			}()
 
 			go func() {
@@ -270,9 +261,96 @@ func TestTCPSwitcher_Read(t *testing.T) {
 				}
 			}()
 
-			if <-timeoutChan {
-				log.Fatalf("TCPSwitcher.Read() did read frame within %v", timeout)
+			for i := 0; i < int(tt.framesToTransceive); i++ {
+				got := <-readChan
+
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("TCPSwitcher.Read() = %v, want %v", got, tt.want)
+				}
 			}
+		})
+	}
+}
+
+func TestTCPSwitcher_Write(t *testing.T) {
+	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	remoteAddr, listener, err := getListenAddrWithFreePort()
+	if err != nil {
+		t.Error(err)
+	}
+	conn, err := getConnection(remoteAddr)
+	expectedFrame := getFrame()
+
+	type fields struct {
+		readChan   chan [wrappers.WrappedFrameSize]byte
+		remoteAddr *net.TCPAddr
+		conn       *net.TCPConn
+	}
+	type args struct {
+		frame [wrappers.WrappedFrameSize]byte
+	}
+	tests := []struct {
+		name               string
+		fields             fields
+		args               args
+		framesToTransceive uint
+		want               [wrappers.WrappedFrameSize]byte
+		wantErr            bool
+	}{
+		{
+			"Write",
+			fields{
+				readChan,
+				remoteAddr,
+				conn,
+			},
+			args{
+				expectedFrame,
+			},
+			5,
+			expectedFrame,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &TCPSwitcher{
+				readChan:   tt.fields.readChan,
+				remoteAddr: tt.fields.remoteAddr,
+				conn:       tt.fields.conn,
+			}
+
+			doneChan := make(chan bool)
+
+			go func() {
+				time.Sleep(time.Millisecond * 5)
+
+				conn, err := listener.AcceptTCP()
+				if err != nil {
+					t.Error(err)
+				}
+
+				for i := 0; i < int(tt.framesToTransceive); i++ {
+					got, err := readFrame(conn)
+					if err != nil {
+						t.Error(err)
+					}
+
+					if !reflect.DeepEqual(got, tt.want) {
+						t.Errorf("read(TCPSwitcher.Write()) = %v, want %v", got, tt.want)
+					}
+				}
+
+				doneChan <- true
+			}()
+
+			for i := 0; i < int(tt.framesToTransceive); i++ {
+				if err := s.Write(tt.args.frame); (err != nil) != tt.wantErr {
+					t.Errorf("TCPSwitcher.Write() error = %v, wantErr %v", err, tt.wantErr)
+				}
+			}
+
+			<-doneChan
 		})
 	}
 }
