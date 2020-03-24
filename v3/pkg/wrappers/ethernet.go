@@ -22,7 +22,7 @@ func NewEthernet() *Ethernet {
 
 // Wrap wraps an ethernet frame
 // Format: [50]byte of header ([17]byte of dest address), [1450]byte of frame
-func (e *Ethernet) Wrap(frame [FrameSize]byte, dest *net.HardwareAddr) ([WrappedFrameSize]byte, error) {
+func (e *Ethernet) Wrap(dest *net.HardwareAddr, frame [FrameSize]byte) ([WrappedFrameSize]byte, error) {
 	outFrame := [WrappedFrameSize]byte{}
 
 	outDest := [DestSize]byte{}
@@ -38,6 +38,16 @@ func (e *Ethernet) Wrap(frame [FrameSize]byte, dest *net.HardwareAddr) ([Wrapped
 }
 
 // Unwrap unwraps an ethernet frame
-func (e *Ethernet) Unwrap(frame [WrappedFrameSize]byte) ([FrameSize]byte, *net.HardwareAddr, error) {
-	return [FrameSize]byte{}, nil, nil
+func (e *Ethernet) Unwrap(frame [WrappedFrameSize]byte) (*net.HardwareAddr, [FrameSize]byte, error) {
+	outHeader := frame[:HeaderSize]
+
+	outDest, err := net.ParseMAC(string(outHeader[:DestSize]))
+	if err != nil {
+		return nil, [FrameSize]byte{}, err
+	}
+
+	outFrame := [FrameSize]byte{}
+	copy(outFrame[:], frame[HeaderSize:])
+
+	return &outDest, outFrame, nil
 }
