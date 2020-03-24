@@ -21,11 +21,11 @@ func getDest() (net.HardwareAddr, error) {
 	return net.ParseMAC(rawDest)
 }
 
-func getFrame() [FrameSize]byte {
-	return [FrameSize]byte{1}
+func getFrame() [EncryptedFrameSize]byte {
+	return [EncryptedFrameSize]byte{1}
 }
 
-func getWrappedFrame(dest net.HardwareAddr, frame [FrameSize]byte) [WrappedFrameSize]byte {
+func getWrappedFrame(dest net.HardwareAddr, frame [EncryptedFrameSize]byte) [WrappedFrameSize]byte {
 	outFrame := [WrappedFrameSize]byte{}
 
 	outDest := [DestSize]byte{}
@@ -69,7 +69,7 @@ func TestEthernet_Wrap(t *testing.T) {
 
 	type args struct {
 		dest  *net.HardwareAddr
-		frame [FrameSize]byte
+		frame [EncryptedFrameSize]byte
 	}
 	tests := []struct {
 		name    string
@@ -120,7 +120,7 @@ func TestEthernet_Unwrap(t *testing.T) {
 		e       *Ethernet
 		args    args
 		want    *net.HardwareAddr
-		want1   [FrameSize]byte
+		want1   [EncryptedFrameSize]byte
 		wantErr bool
 	}{
 		{
@@ -140,7 +140,7 @@ func TestEthernet_Unwrap(t *testing.T) {
 				[WrappedFrameSize]byte{},
 			},
 			nil,
-			[FrameSize]byte{},
+			[EncryptedFrameSize]byte{},
 			true,
 		},
 	}

@@ -5,10 +5,10 @@ import (
 )
 
 const (
-	FrameSize        = 1450                         // FrameSize is the size of a non-wrapped frame
-	WrappedFrameSize = 1500                         // WrappedFrameSize is the size of a wrapped frame
-	HeaderSize       = WrappedFrameSize - FrameSize // HeaderSize is the size of the header
-	DestSize         = 17                           // DestSize is the size of the dest address
+	EncryptedFrameSize = 1450                                  // EncryptedFrameSize is the size of a encrypted, non-wrapped frame
+	WrappedFrameSize   = 1500                                  // WrappedFrameSize is the size of a wrapped frame
+	HeaderSize         = WrappedFrameSize - EncryptedFrameSize // HeaderSize is the size of the header
+	DestSize           = 17                                    // DestSize is the size of the dest address
 )
 
 // Ethernet wraps and unwraps ethernet frames
@@ -22,7 +22,7 @@ func NewEthernet() *Ethernet {
 
 // Wrap wraps an ethernet frame
 // Format: [50]byte of header ([17]byte of dest address), [1450]byte of frame
-func (e *Ethernet) Wrap(dest *net.HardwareAddr, frame [FrameSize]byte) ([WrappedFrameSize]byte, error) {
+func (e *Ethernet) Wrap(dest *net.HardwareAddr, frame [EncryptedFrameSize]byte) ([WrappedFrameSize]byte, error) {
 	outFrame := [WrappedFrameSize]byte{}
 
 	outDest := [DestSize]byte{}
@@ -38,15 +38,15 @@ func (e *Ethernet) Wrap(dest *net.HardwareAddr, frame [FrameSize]byte) ([Wrapped
 }
 
 // Unwrap unwraps an ethernet frame
-func (e *Ethernet) Unwrap(frame [WrappedFrameSize]byte) (*net.HardwareAddr, [FrameSize]byte, error) {
+func (e *Ethernet) Unwrap(frame [WrappedFrameSize]byte) (*net.HardwareAddr, [EncryptedFrameSize]byte, error) {
 	outHeader := frame[:HeaderSize]
 
 	outDest, err := net.ParseMAC(string(outHeader[:DestSize]))
 	if err != nil {
-		return nil, [FrameSize]byte{}, err
+		return nil, [EncryptedFrameSize]byte{}, err
 	}
 
-	outFrame := [FrameSize]byte{}
+	outFrame := [EncryptedFrameSize]byte{}
 	copy(outFrame[:], frame[HeaderSize:])
 
 	return &outDest, outFrame, nil
