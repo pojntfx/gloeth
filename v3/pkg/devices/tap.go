@@ -1,14 +1,21 @@
 package devices
 
+import "github.com/pojntfx/gloeth/v3/pkg/encryptors"
+
+const (
+	MTU = encryptors.PlaintextFrameSize - 14 // MTU is the MTU, which is the plaintext frame size - ethernet header (14 bytes)
+)
+
 // TAP is a TAP device
 type TAP struct {
-	readChan chan []byte
+	readChan chan [encryptors.PlaintextFrameSize]byte
+	mtu      uint
 	name     string
 }
 
 // NewTAP creates a new TAP device
-func NewTAP(readChan chan []byte, name string) *TAP {
-	return &TAP{readChan, name}
+func NewTAP(readChan chan [encryptors.PlaintextFrameSize]byte, mtu uint, name string) *TAP {
+	return &TAP{readChan, mtu, name}
 }
 
 // Open opens the TAP device
@@ -27,6 +34,6 @@ func (t *TAP) Read() error {
 }
 
 // Write writes from the TAP device
-func (t *TAP) Write(frame []byte) error {
+func (t *TAP) Write(frame [encryptors.PlaintextFrameSize]byte) error {
 	return nil
 }
