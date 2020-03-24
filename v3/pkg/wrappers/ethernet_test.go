@@ -24,6 +24,21 @@ func getFrame() [FrameSize]byte {
 	return [FrameSize]byte{1}
 }
 
+func getWrappedFrame(dest net.HardwareAddr, frame [FrameSize]byte) [WrappedFrameSize]byte {
+	outFrame := [WrappedFrameSize]byte{}
+
+	outDest := [DestSize]byte{}
+	copy(outDest[:], dest.String())
+
+	outHeader := [HeaderSize]byte{}
+	copy(outHeader[:DestSize], outDest[:])
+
+	copy(outFrame[:HeaderSize], outHeader[:])
+	copy(outFrame[HeaderSize:], frame[:])
+
+	return outFrame
+}
+
 func TestNewEthernet(t *testing.T) {
 	e := NewEthernet()
 
@@ -41,7 +56,7 @@ func TestWrap(t *testing.T) {
 
 	e := NewEthernet()
 
-	wrappedFrame, err := e.Wrap(expectedFrame, &expectedDest)
+	wrappedFrame, err := e.Wrap(&expectedDest, expectedFrame)
 	if err != nil {
 		t.Error(err)
 	}
@@ -60,5 +75,30 @@ func TestWrap(t *testing.T) {
 	copy(actualFrame[:], wrappedFrame[HeaderSize:])
 	if actualFrame != expectedFrame {
 		t.Error("Frame not wrapped correctly")
+	}
+}
+
+// TODO: Add test for faulty MAC address
+func TestUnwrap(t *testing.T) {
+	expectedFrame := getFrame()
+	expectedDest, err := getDest()
+	if err != nil {
+		t.Error(err)
+	}
+	wrappedFrame := getWrappedFrame(expectedDest, expectedFrame)
+
+	e := NewEthernet()
+
+	actualDest, actualFrame, err := e.Unwrap(wrappedFrame)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if actualDest.String() != expectedDest.String() {
+		t.Error("Dest not unwrapped correctly")
+	}
+
+	if actualFrame != expectedFrame {
+		t.Error("Frame not unwrapped correctly")
 	}
 }
