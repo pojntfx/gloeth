@@ -68,8 +68,8 @@ func (t *TCP) GetConnectionsForMAC(destMAC, srcMAC *net.HardwareAddr) ([]*net.TC
 	if dest == "ff:ff:ff:ff:ff:ff" {
 		connsToReturn := []*net.TCPConn{}
 
-		for _, conn := range t.conns {
-			if dest != src {
+		for connDest, conn := range t.conns {
+			if connDest != src {
 				connsToReturn = append(connsToReturn, conn)
 			}
 		}

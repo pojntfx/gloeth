@@ -23,6 +23,10 @@ func getMACAddress() (net.HardwareAddr, error) {
 	return net.ParseMAC(rawDest)
 }
 
+func getBroadcastMACAddress() (net.HardwareAddr, error) {
+	return net.ParseMAC("ff:ff:ff:ff:ff:ff")
+}
+
 func getListener() (*net.TCPAddr, *net.TCPListener, error) {
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -439,6 +443,129 @@ func TestTCP_Register(t *testing.T) {
 
 			if got != tt.want {
 				t.Errorf("TCP.Register() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTCP_GetConnectionsForMAC(t *testing.T) {
+	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	connChan := make(chan *net.TCPConn)
+	laddr, _, err := getListener()
+	if err != nil {
+		t.Error(err)
+	}
+	conn1, err := getConn(laddr)
+	if err != nil {
+		t.Error(err)
+	}
+	conn2, err := getConn(laddr)
+	if err != nil {
+		t.Error(err)
+	}
+	mac1, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+	mac2, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+	broadcastMAC, err := getBroadcastMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+
+	type fields struct {
+		readChan chan [wrappers.WrappedFrameSize]byte
+		connChan chan *net.TCPConn
+		laddr    *net.TCPAddr
+		listener *net.TCPListener
+		conns    map[string]*net.TCPConn
+	}
+	type args struct {
+		destMAC *net.HardwareAddr
+		srcMAC  *net.HardwareAddr
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []*net.TCPConn
+		wantErr bool
+	}{
+		{
+			"GetConnectionsForMAC",
+			fields{
+				readChan,
+				connChan,
+				nil,
+				nil,
+				map[string]*net.TCPConn{
+					mac1.String(): conn1,
+				},
+			},
+			args{
+				&mac1,
+				&mac2,
+			},
+			[]*net.TCPConn{conn1},
+			false,
+		},
+		{
+			"GetConnectionsForMAC (broadcast)",
+			fields{
+				readChan,
+				connChan,
+				nil,
+				nil,
+				map[string]*net.TCPConn{
+					mac1.String(): conn1,
+					mac2.String(): conn2,
+				},
+			},
+			args{
+				&broadcastMAC,
+				&mac1,
+			},
+			[]*net.TCPConn{conn2},
+			false,
+		},
+		{
+			"GetConnectionsForMAC (unknown connection)",
+			fields{
+				readChan,
+				connChan,
+				nil,
+				nil,
+				map[string]*net.TCPConn{
+					mac1.String(): conn1,
+				},
+			},
+			args{
+				&mac2,
+				&mac1,
+			},
+			[]*net.TCPConn{},
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &TCP{
+				readChan: tt.fields.readChan,
+				connChan: tt.fields.connChan,
+				laddr:    tt.fields.laddr,
+				listener: tt.fields.listener,
+				conns:    tt.fields.conns,
+			}
+			got, err := s.GetConnectionsForMAC(tt.args.destMAC, tt.args.srcMAC)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("TCP.GetConnectionsForMAC() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("TCP.GetConnectionsForMAC() = %v, want %v", got, tt.want)
 			}
 		})
 	}
