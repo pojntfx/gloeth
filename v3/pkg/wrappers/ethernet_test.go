@@ -28,15 +28,15 @@ func getFrame() [EncryptedFrameSize]byte {
 func getWrappedFrame(dest, src net.HardwareAddr, frame [EncryptedFrameSize]byte) [WrappedFrameSize]byte {
 	outFrame := [WrappedFrameSize]byte{}
 
-	outDest := [DestSize]byte{}
+	outDest := [HeaderDestSize]byte{}
 	copy(outDest[:], dest.String())
 
-	outSrc := [SrcSize]byte{}
+	outSrc := [HeaderSrcSize]byte{}
 	copy(outSrc[:], src.String())
 
 	outHeader := [HeaderSize]byte{}
-	copy(outHeader[:DestSize], outDest[:])
-	copy(outHeader[DestSize:DestSize+SrcSize], outSrc[:])
+	copy(outHeader[:HeaderDestSize], outDest[:])
+	copy(outHeader[HeaderDestSize:HeaderDestSize+HeaderSrcSize], outSrc[:])
 
 	copy(outFrame[:HeaderSize], outHeader[:])
 	copy(outFrame[HeaderSize:], frame[:])
