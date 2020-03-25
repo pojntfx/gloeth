@@ -11,6 +11,7 @@ import (
 
 func main() {
 	laddrFlag := flag.String("laddr", ":1234", "Listen address")
+	verbose := flag.Bool("verbose", false, "Enable verbose mode")
 	flag.Parse()
 
 	laddr, err := net.ResolveTCPAddr("tcp", *laddrFlag)
@@ -53,11 +54,19 @@ func main() {
 						break
 					}
 
+					if *verbose {
+						log.Printf("READ frame from edge: %v", inFrame)
+					}
+
 					_, sourceMAC, _, err := wpr.Unwrap(inFrame)
 					if err != nil {
 						log.Printf("could not unwrap frame: %v", err)
 
 						continue
+					}
+
+					if *verbose {
+						log.Printf("REGISTERING connection for edge with MAC %v: %v", sourceMAC, conn)
 					}
 
 					switcher.Register(sourceMAC, conn)
@@ -83,6 +92,10 @@ func main() {
 			log.Printf("could not get connections: %v", err)
 
 			continue
+		}
+
+		if *verbose {
+			log.Printf("WRITING frame to edge(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
 		}
 
 		for _, conn := range conns {
