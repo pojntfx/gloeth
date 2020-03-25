@@ -21,8 +21,8 @@ func main() {
 	readChan := make(chan [wrappers.WrappedFrameSize]byte)
 	connChan := make(chan *net.TCPConn)
 
-	conns := make(map[string]*net.TCPConn)
-	switcher := switchers.NewTCP(readChan, connChan, laddr, conns)
+	initConns := make(map[string]*net.TCPConn)
+	switcher := switchers.NewTCP(readChan, connChan, laddr, initConns)
 
 	defer switcher.Close()
 	if err := switcher.Open(); err != nil {
@@ -38,29 +38,31 @@ func main() {
 	}()
 
 	go func() {
-		conn := <-connChan
+		for {
+			conn := <-connChan
 
-		go func() {
-			for {
-				inFrame := [wrappers.WrappedFrameSize]byte{}
+			go func() {
+				for {
+					inFrame := [wrappers.WrappedFrameSize]byte{}
 
-				_, err := conn.Read(inFrame[:])
-				if err != nil {
-					log.Fatal(err)
+					_, err := conn.Read(inFrame[:])
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					_, sourceMAC, _, err := wpr.Unwrap(inFrame)
+					if err != nil {
+						log.Println(err)
+
+						continue
+					}
+
+					switcher.Register(sourceMAC, conn)
+
+					switcher.HandleFrame(inFrame)
 				}
-
-				destMAC, _, _, err := wpr.Unwrap(inFrame)
-				if err != nil {
-					log.Println(err)
-
-					continue
-				}
-
-				switcher.Register(destMAC, conn)
-
-				switcher.HandleFrame(inFrame)
-			}
-		}()
+			}()
+		}
 	}()
 
 	for {

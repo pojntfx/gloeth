@@ -60,10 +60,21 @@ func (t *TAP) Close() error {
 
 // Read reads from the TAP device
 func (t *TAP) Read() error {
-	return nil
+	for {
+		readFrame := [encryptors.PlaintextFrameSize]byte{}
+
+		_, err := t.dev.Read(readFrame[:])
+		if err != nil {
+			return err
+		}
+
+		t.readChan <- readFrame
+	}
 }
 
 // Write writes from the TAP device
 func (t *TAP) Write(frame [encryptors.PlaintextFrameSize]byte) error {
-	return nil
+	_, err := t.dev.Write(frame[:])
+
+	return err
 }
