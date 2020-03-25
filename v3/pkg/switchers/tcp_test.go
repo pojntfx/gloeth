@@ -1,13 +1,27 @@
 package switchers
 
 import (
+	"fmt"
 	"net"
 	"reflect"
 	"testing"
 	"time"
 
+	gm "github.com/cseeger-epages/mac-gen-go"
 	"github.com/pojntfx/gloeth/v3/pkg/wrappers"
 )
+
+func getMACAddress() (net.HardwareAddr, error) {
+	prefix := gm.GenerateRandomLocalMacPrefix(false)
+	suffix, err := gm.CalculateNICSufix(net.ParseIP("10.0.0.1"))
+	if err != nil {
+		return nil, err
+	}
+
+	rawDest := fmt.Sprintf("%v:%v", prefix, suffix)
+
+	return net.ParseMAC(rawDest)
+}
 
 func getListener() (*net.TCPAddr, *net.TCPListener, error) {
 	l, err := net.Listen("tcp", ":0")
@@ -355,6 +369,76 @@ func TestTCP_HandleFrame(t *testing.T) {
 				if !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("TCP.HandleFrame() = %v, want %v", got, tt.want)
 				}
+			}
+		})
+	}
+}
+
+func TestTCP_Register(t *testing.T) {
+	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	connChan := make(chan *net.TCPConn)
+	laddr, _, err := getListener()
+	if err != nil {
+		t.Error(err)
+	}
+	conn, err := getConn(laddr)
+	if err != nil {
+		t.Error(err)
+	}
+	mac, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+
+	type fields struct {
+		readChan chan [wrappers.WrappedFrameSize]byte
+		connChan chan *net.TCPConn
+		laddr    *net.TCPAddr
+		listener *net.TCPListener
+		conns    map[string]*net.TCPConn
+	}
+	type args struct {
+		mac  *net.HardwareAddr
+		conn *net.TCPConn
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   *net.TCPConn
+	}{
+		{
+			"Register",
+			fields{
+				readChan,
+				connChan,
+				nil,
+				nil,
+				make(map[string]*net.TCPConn),
+			},
+			args{
+				&mac,
+				conn,
+			},
+			conn,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &TCP{
+				readChan: tt.fields.readChan,
+				connChan: tt.fields.connChan,
+				laddr:    tt.fields.laddr,
+				listener: tt.fields.listener,
+				conns:    tt.fields.conns,
+			}
+
+			s.Register(tt.args.mac, tt.args.conn)
+
+			got := s.conns[tt.args.mac.String()]
+
+			if got != tt.want {
+				t.Errorf("TCP.Register() = %v, want %v", got, tt.want)
 			}
 		})
 	}
