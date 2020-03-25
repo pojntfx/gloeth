@@ -288,7 +288,72 @@ func TestTCP_Read(t *testing.T) {
 				}
 
 				if !reflect.DeepEqual(got, tt.want) {
-					t.Errorf("TCP.Read() = %v, want %v", conn, tt.want)
+					t.Errorf("TCP.Read() = %v, want %v", got, tt.want)
+				}
+			}
+		})
+	}
+}
+
+func TestTCP_HandleFrame(t *testing.T) {
+	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	connChan := make(chan *net.TCPConn)
+	expectedFrame := getFrame()
+
+	type fields struct {
+		readChan chan [wrappers.WrappedFrameSize]byte
+		connChan chan *net.TCPConn
+		laddr    *net.TCPAddr
+		listener *net.TCPListener
+		conns    map[string]*net.TCPConn
+	}
+	type args struct {
+		frame [wrappers.WrappedFrameSize]byte
+	}
+	tests := []struct {
+		name               string
+		fields             fields
+		args               args
+		framesToTransceive uint
+		want               [wrappers.WrappedFrameSize]byte
+	}{
+		{
+			"HandleFrame",
+			fields{
+				readChan,
+				connChan,
+				nil,
+				nil,
+				nil,
+			},
+			args{
+				expectedFrame,
+			},
+			5,
+			expectedFrame,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &TCP{
+				readChan: tt.fields.readChan,
+				connChan: tt.fields.connChan,
+				laddr:    tt.fields.laddr,
+				listener: tt.fields.listener,
+				conns:    tt.fields.conns,
+			}
+
+			go func() {
+				for i := 0; i < int(tt.framesToTransceive); i++ {
+					s.HandleFrame(tt.args.frame)
+				}
+			}()
+
+			for i := 0; i < int(tt.framesToTransceive); i++ {
+				got := <-readChan
+
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("TCP.HandleFrame() = %v, want %v", got, tt.want)
 				}
 			}
 		})
