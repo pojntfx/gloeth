@@ -133,3 +133,47 @@ func TestTCP_Open(t *testing.T) {
 		})
 	}
 }
+
+func TestTCP_Close(t *testing.T) {
+	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	laddr, listener, err := getListener()
+	if err != nil {
+		t.Error(err)
+	}
+
+	type fields struct {
+		readChan chan [wrappers.WrappedFrameSize]byte
+		laddr    *net.TCPAddr
+		listener *net.TCPListener
+		conns    []map[string]*net.TCPConn
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			"Close",
+			fields{
+				readChan,
+				laddr,
+				listener,
+				nil,
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &TCP{
+				readChan: tt.fields.readChan,
+				laddr:    tt.fields.laddr,
+				listener: tt.fields.listener,
+				conns:    tt.fields.conns,
+			}
+			if err := s.Close(); (err != nil) != tt.wantErr {
+				t.Errorf("TCP.Close() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
