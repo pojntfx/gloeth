@@ -37,8 +37,20 @@ func writeFrame(conn *net.TCPConn, frame [wrappers.WrappedFrameSize]byte) error 
 	return err
 }
 
+func readFrame(conn *net.TCPConn) ([wrappers.WrappedFrameSize]byte, error) {
+	frame := [wrappers.WrappedFrameSize]byte{}
+
+	_, err := conn.Read(frame[:])
+	if err != nil {
+		return [wrappers.WrappedFrameSize]byte{}, err
+	}
+
+	return frame, nil
+}
+
 func TestNewTCP(t *testing.T) {
 	expectedReadChan := make(chan [wrappers.WrappedFrameSize]byte)
+	expectedConnChan := make(chan *net.TCPConn)
 	expectedLaddr, _, err := getListener()
 	if err != nil {
 		t.Error(err)
@@ -46,6 +58,7 @@ func TestNewTCP(t *testing.T) {
 
 	type args struct {
 		readChan   chan [wrappers.WrappedFrameSize]byte
+		connChan   chan *net.TCPConn
 		listenAddr *net.TCPAddr
 	}
 	tests := []struct {
@@ -57,10 +70,12 @@ func TestNewTCP(t *testing.T) {
 			"New",
 			args{
 				expectedReadChan,
+				expectedConnChan,
 				expectedLaddr,
 			},
 			&TCP{
 				expectedReadChan,
+				expectedConnChan,
 				expectedLaddr,
 				nil,
 				nil,
@@ -69,7 +84,7 @@ func TestNewTCP(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewTCP(tt.args.readChan, tt.args.listenAddr); !reflect.DeepEqual(got, tt.want) {
+			if got := NewTCP(tt.args.readChan, tt.args.connChan, tt.args.listenAddr); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewTCP() = %v, want %v", got, tt.want)
 			}
 		})
@@ -78,6 +93,7 @@ func TestNewTCP(t *testing.T) {
 
 func TestTCP_Open(t *testing.T) {
 	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	connChan := make(chan *net.TCPConn)
 	laddr, listener, err := getListener()
 	if err != nil {
 		t.Error(err)
@@ -88,9 +104,10 @@ func TestTCP_Open(t *testing.T) {
 
 	type fields struct {
 		readChan   chan [wrappers.WrappedFrameSize]byte
+		connChan   chan *net.TCPConn
 		listenAddr *net.TCPAddr
 		listener   *net.TCPListener
-		conns      []map[string]*net.TCPConn
+		conns      map[string]*net.TCPConn
 	}
 	tests := []struct {
 		name    string
@@ -101,6 +118,7 @@ func TestTCP_Open(t *testing.T) {
 			"Open",
 			fields{
 				readChan,
+				connChan,
 				laddr,
 				nil,
 				nil,
@@ -112,6 +130,7 @@ func TestTCP_Open(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &TCP{
 				readChan: tt.fields.readChan,
+				connChan: tt.fields.connChan,
 				laddr:    tt.fields.listenAddr,
 				listener: tt.fields.listener,
 				conns:    tt.fields.conns,
@@ -146,6 +165,7 @@ func TestTCP_Open(t *testing.T) {
 
 func TestTCP_Close(t *testing.T) {
 	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	connChan := make(chan *net.TCPConn)
 	laddr, listener, err := getListener()
 	if err != nil {
 		t.Error(err)
@@ -153,9 +173,10 @@ func TestTCP_Close(t *testing.T) {
 
 	type fields struct {
 		readChan chan [wrappers.WrappedFrameSize]byte
+		connChan chan *net.TCPConn
 		laddr    *net.TCPAddr
 		listener *net.TCPListener
-		conns    []map[string]*net.TCPConn
+		conns    map[string]*net.TCPConn
 	}
 	tests := []struct {
 		name    string
@@ -166,6 +187,7 @@ func TestTCP_Close(t *testing.T) {
 			"Close",
 			fields{
 				readChan,
+				connChan,
 				laddr,
 				listener,
 				nil,
@@ -177,6 +199,7 @@ func TestTCP_Close(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &TCP{
 				readChan: tt.fields.readChan,
+				connChan: tt.fields.connChan,
 				laddr:    tt.fields.laddr,
 				listener: tt.fields.listener,
 				conns:    tt.fields.conns,
@@ -190,18 +213,23 @@ func TestTCP_Close(t *testing.T) {
 
 func TestTCP_Read(t *testing.T) {
 	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	connChan := make(chan *net.TCPConn)
 	laddr, listener, err := getListener()
 	if err != nil {
 		t.Error(err)
 	}
 	conn, err := getConn(laddr)
+	if err != nil {
+		t.Error(err)
+	}
 	expectedFrame := getFrame()
 
 	type fields struct {
 		readChan chan [wrappers.WrappedFrameSize]byte
+		connChan chan *net.TCPConn
 		laddr    *net.TCPAddr
 		listener *net.TCPListener
-		conns    []map[string]*net.TCPConn
+		conns    map[string]*net.TCPConn
 	}
 	tests := []struct {
 		name               string
@@ -214,6 +242,7 @@ func TestTCP_Read(t *testing.T) {
 			"Read",
 			fields{
 				readChan,
+				connChan,
 				laddr,
 				listener,
 				nil,
@@ -228,6 +257,7 @@ func TestTCP_Read(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &TCP{
 				readChan: tt.fields.readChan,
+				connChan: tt.fields.connChan,
 				laddr:    tt.fields.laddr,
 				listener: tt.fields.listener,
 				conns:    tt.fields.conns,
@@ -249,11 +279,16 @@ func TestTCP_Read(t *testing.T) {
 				}
 			}()
 
+			conn := <-connChan
+
 			for i := 0; i < int(tt.framesToTransceive); i++ {
-				got := <-readChan
+				got, err := readFrame(conn)
+				if err != nil {
+					t.Error(err)
+				}
 
 				if !reflect.DeepEqual(got, tt.want) {
-					t.Errorf("TCP.Read() = %v, want %v", got, tt.want)
+					t.Errorf("TCP.Read() = %v, want %v", conn, tt.want)
 				}
 			}
 		})
