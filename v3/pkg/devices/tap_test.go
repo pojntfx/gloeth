@@ -3,10 +3,13 @@ package devices
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"os"
 	"reflect"
 	"testing"
 
+	"github.com/mdlayher/raw"
+	"github.com/pojntfx/ethernet"
 	"github.com/pojntfx/gloeth/v3/pkg/encryptors"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
@@ -45,6 +48,49 @@ func getDev(name string, mtu uint) (*water.Interface, error) {
 
 func closeDev(dev *water.Interface) error {
 	return dev.Close()
+}
+
+func writeTestFrame(devName, content string) error {
+	const etherType = 0xcccc
+	dest := ethernet.Broadcast
+
+	link, err := net.InterfaceByName(devName)
+	if err != nil {
+		return err
+	}
+
+	conn, err := raw.ListenPacket(link, etherType, nil)
+	if err != nil {
+		return err
+	}
+
+	frame := &ethernet.Frame{
+		Destination: dest,
+		Source:      link.HardwareAddr,
+		EtherType:   etherType,
+		Payload:     []byte(content),
+	}
+
+	ethFrame, err := frame.MarshalBinary()
+	if err != nil {
+		return err
+	}
+
+	outFrame := [encryptors.PlaintextFrameSize]byte{}
+	copy(outFrame[:], ethFrame)
+
+	_, err = conn.WriteTo(outFrame[:], &raw.Addr{
+		HardwareAddr: dest,
+	})
+
+	return err
+}
+
+func readFrame(frame [encryptors.PlaintextFrameSize]byte) (ethernet.Frame, error) {
+	var ethFrame ethernet.Frame
+	err := ethFrame.UnmarshalBinary(frame[:])
+
+	return ethFrame, err
 }
 
 func TestNewTAP(t *testing.T) {
@@ -195,6 +241,94 @@ func TestTAP_Close(t *testing.T) {
 			}
 			if err := s.Close(); (err != nil) != tt.wantErr {
 				t.Errorf("TAP.Close() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestTAP_Read(t *testing.T) {
+	if os.Geteuid() != 0 && !testing.Short() {
+		t.Skip()
+	}
+
+	readChan := make(chan [encryptors.PlaintextFrameSize]byte)
+	mtu := uint(MTU)
+	name := getDevName(300)
+	dev, err := getDev(name, mtu)
+	if err != nil {
+		t.Error(err)
+	}
+	expectedContent := "test"
+
+	type fields struct {
+		readChan chan [encryptors.PlaintextFrameSize]byte
+		mtu      uint
+		name     string
+		dev      *water.Interface
+	}
+	tests := []struct {
+		name                 string
+		fields               fields
+		contentToWrite, want string
+		framesToTransceive   uint
+		wantErr              bool
+	}{
+		{
+			"Read",
+			fields{
+				readChan,
+				mtu,
+				name,
+				dev,
+			},
+			expectedContent,
+			expectedContent,
+			5,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &TAP{
+				readChan: tt.fields.readChan,
+				mtu:      tt.fields.mtu,
+				name:     tt.fields.name,
+				dev:      tt.fields.dev,
+			}
+
+			go func() {
+				if err := s.Read(); (err != nil) != tt.wantErr {
+					t.Errorf("TAP.Read() error = %v, wantErr %v", err, tt.wantErr)
+				}
+			}()
+
+			go func() {
+				for i := 0; i < int(tt.framesToTransceive); i++ {
+					if err := writeTestFrame(s.name, tt.contentToWrite); err != nil {
+						t.Error(err)
+					}
+				}
+			}()
+
+			for matches := 0; matches < int(tt.framesToTransceive); matches++ {
+				frame := <-readChan
+
+				inFrame, err := readFrame(frame)
+				if err != nil {
+					t.Error(frame)
+				}
+
+				actualContent := string(inFrame.Payload[:len(tt.contentToWrite)])
+
+				if actualContent == tt.want {
+					matches = matches + 1
+
+					continue
+				}
+
+				matches = matches - 1
+
+				t.Log(matches)
 			}
 		})
 	}
