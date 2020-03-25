@@ -42,14 +42,14 @@ func main() {
 					log.Fatal(err)
 				}
 
-				addr, _, err := wpr.Unwrap(inFrame)
+				destMAC, _, _, err := wpr.Unwrap(inFrame)
 				if err != nil {
 					log.Println(err)
 
 					continue
 				}
 
-				switcher.Register(addr, conn)
+				switcher.Register(destMAC, conn)
 
 				switcher.HandleFrame(inFrame)
 			}
@@ -59,14 +59,14 @@ func main() {
 	for {
 		inFrame := <-readChan
 
-		addr, _, err := wpr.Unwrap(inFrame)
+		destMAC, sourceMAC, _, err := wpr.Unwrap(inFrame)
 		if err != nil {
 			log.Println(err)
 
 			continue
 		}
 
-		conns, err := switcher.GetConnectionsForMAC(addr)
+		conns, err := switcher.GetConnectionsForMAC(destMAC, sourceMAC)
 		if err != nil {
 			log.Println(err)
 

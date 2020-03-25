@@ -23,9 +23,10 @@ func getMACAddress() (net.HardwareAddr, error) {
 	return net.ParseMAC(rawDest)
 }
 
-func getFrame(mac net.HardwareAddr) ([encryptors.PlaintextFrameSize]byte, error) {
+func getFrame(destMAC, srcMAC net.HardwareAddr) ([encryptors.PlaintextFrameSize]byte, error) {
 	var frame ethernet.Frame
-	frame.Destination = mac
+	frame.Destination = destMAC
+	frame.Source = srcMAC
 
 	rawOutFrame, err := frame.MarshalBinary()
 	if err != nil {
@@ -62,11 +63,15 @@ func TestNewEthernet(t *testing.T) {
 }
 
 func TestEthernet_GetDestMACAddress(t *testing.T) {
-	mac, err := getMACAddress()
+	destMAC, err := getMACAddress()
 	if err != nil {
 		t.Error(err)
 	}
-	frame, err := getFrame(mac)
+	srcMAC, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+	frame, err := getFrame(destMAC, srcMAC)
 	if err != nil {
 		t.Error(err)
 	}
@@ -83,7 +88,8 @@ func TestEthernet_GetDestMACAddress(t *testing.T) {
 		name    string
 		e       *Ethernet
 		args    args
-		want    *net.HardwareAddr
+		want1   *net.HardwareAddr
+		want2   *net.HardwareAddr
 		wantErr bool
 	}{
 		{
@@ -92,7 +98,8 @@ func TestEthernet_GetDestMACAddress(t *testing.T) {
 			args{
 				frame,
 			},
-			&mac,
+			&destMAC,
+			&srcMAC,
 			false,
 		},
 		{
@@ -102,19 +109,23 @@ func TestEthernet_GetDestMACAddress(t *testing.T) {
 				faultyFrame,
 			},
 			&expectedMacFromFaultyFrame,
+			&expectedMacFromFaultyFrame,
 			false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &Ethernet{}
-			got, err := e.GetDestMACAddress(tt.args.frame)
+			got1, got2, err := e.GetMACAddresses(tt.args.frame)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Ethernet.GetDestMACAddress() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Ethernet.GetDestMACAddress() = %v, want %v", got, tt.want)
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("Ethernet.GetDestMACAddress()[0] = %v, want %v", got1, tt.want1)
+			}
+			if !reflect.DeepEqual(got2, tt.want2) {
+				t.Errorf("Ethernet.GetDestMACAddress()[1] = %v, want %v", got2, tt.want2)
 			}
 		})
 	}

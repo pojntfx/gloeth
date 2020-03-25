@@ -9,6 +9,7 @@ const (
 	WrappedFrameSize   = 1500                                  // WrappedFrameSize is the size of a wrapped frame
 	HeaderSize         = WrappedFrameSize - EncryptedFrameSize // HeaderSize is the size of the header
 	DestSize           = 17                                    // DestSize is the size of the dest address
+	SrcSize            = 17                                    // SrcSize is the size of the dest address
 )
 
 // Ethernet wraps and unwraps ethernet frames
@@ -21,15 +22,19 @@ func NewEthernet() *Ethernet {
 }
 
 // Wrap wraps an ethernet frame
-// Format: [50]byte of header ([17]byte of dest address), [1450]byte of frame
-func (e *Ethernet) Wrap(dest *net.HardwareAddr, frame [EncryptedFrameSize]byte) ([WrappedFrameSize]byte, error) {
+// Format: [HeaderSize]byte of header ([DestSize]byte of dest address, [SrcSize]byte of src address), [EncryptedFrameSize]byte of frame
+func (e *Ethernet) Wrap(dest, src *net.HardwareAddr, frame [EncryptedFrameSize]byte) ([WrappedFrameSize]byte, error) {
 	outFrame := [WrappedFrameSize]byte{}
 
 	outDest := [DestSize]byte{}
 	copy(outDest[:], dest.String())
 
+	outSrc := [SrcSize]byte{}
+	copy(outSrc[:], src.String())
+
 	outHeader := [HeaderSize]byte{}
 	copy(outHeader[:DestSize], outDest[:])
+	copy(outHeader[DestSize:DestSize+SrcSize], outSrc[:])
 
 	copy(outFrame[:HeaderSize], outHeader[:])
 	copy(outFrame[HeaderSize:], frame[:])
@@ -38,16 +43,21 @@ func (e *Ethernet) Wrap(dest *net.HardwareAddr, frame [EncryptedFrameSize]byte) 
 }
 
 // Unwrap unwraps an ethernet frame
-func (e *Ethernet) Unwrap(frame [WrappedFrameSize]byte) (*net.HardwareAddr, [EncryptedFrameSize]byte, error) {
+func (e *Ethernet) Unwrap(frame [WrappedFrameSize]byte) (*net.HardwareAddr, *net.HardwareAddr, [EncryptedFrameSize]byte, error) {
 	outHeader := frame[:HeaderSize]
 
 	outDest, err := net.ParseMAC(string(outHeader[:DestSize]))
 	if err != nil {
-		return nil, [EncryptedFrameSize]byte{}, err
+		return nil, nil, [EncryptedFrameSize]byte{}, err
+	}
+
+	outSrc, err := net.ParseMAC(string(outHeader[DestSize : DestSize+SrcSize]))
+	if err != nil {
+		return &outDest, nil, [EncryptedFrameSize]byte{}, err
 	}
 
 	outFrame := [EncryptedFrameSize]byte{}
 	copy(outFrame[:], frame[HeaderSize:])
 
-	return &outDest, outFrame, nil
+	return &outDest, &outSrc, outFrame, nil
 }
