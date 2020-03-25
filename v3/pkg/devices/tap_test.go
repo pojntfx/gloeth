@@ -93,6 +93,10 @@ func readFrame(frame [encryptors.PlaintextFrameSize]byte) (ethernet.Frame, error
 	return ethFrame, err
 }
 
+func getFrame() [encryptors.PlaintextFrameSize]byte {
+	return [encryptors.PlaintextFrameSize]byte{1}
+}
+
 func TestNewTAP(t *testing.T) {
 	readChan := make(chan [encryptors.PlaintextFrameSize]byte)
 	mtu := uint(MTU)
@@ -327,8 +331,73 @@ func TestTAP_Read(t *testing.T) {
 				}
 
 				matches = matches - 1
+			}
 
-				t.Log(matches)
+			if err := closeDev(s.dev); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+func TestTAP_Write(t *testing.T) {
+	if os.Geteuid() != 0 && !testing.Short() {
+		t.Skip()
+	}
+
+	readChan := make(chan [encryptors.PlaintextFrameSize]byte)
+	mtu := uint(MTU)
+	name := getDevName(400)
+	dev, err := getDev(name, mtu)
+	if err != nil {
+		t.Error(err)
+	}
+	frameToWrite := getFrame()
+
+	type fields struct {
+		readChan chan [encryptors.PlaintextFrameSize]byte
+		mtu      uint
+		name     string
+		dev      *water.Interface
+	}
+	type args struct {
+		frame [encryptors.PlaintextFrameSize]byte
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			"Write",
+			fields{
+				readChan,
+				mtu,
+				name,
+				dev,
+			},
+			args{
+				frameToWrite,
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &TAP{
+				readChan: tt.fields.readChan,
+				mtu:      tt.fields.mtu,
+				name:     tt.fields.name,
+				dev:      tt.fields.dev,
+			}
+
+			if err := s.Write(tt.args.frame); (err != nil) != tt.wantErr {
+				t.Errorf("TAP.Write() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if err := closeDev(s.dev); err != nil {
+				t.Error(err)
 			}
 		})
 	}
