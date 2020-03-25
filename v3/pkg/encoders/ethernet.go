@@ -16,13 +16,13 @@ func NewEthernet() *Ethernet {
 	return &Ethernet{}
 }
 
-// GetDestMACAddress reads the destination MAC address from an ethernet frame
-func (e *Ethernet) GetDestMACAddress(frame [encryptors.PlaintextFrameSize]byte) (*net.HardwareAddr, error) {
+// GetMACAddresses reads the destination and source MAC addresses from an ethernet frame
+func (e *Ethernet) GetMACAddresses(frame [encryptors.PlaintextFrameSize]byte) (*net.HardwareAddr, *net.HardwareAddr, error) {
 	var ethFrame ethernet.Frame
 
 	if err := ethFrame.UnmarshalBinary(frame[:]); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &ethFrame.Destination, nil
+	return &ethFrame.Destination, &ethFrame.Source, nil
 }

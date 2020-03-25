@@ -1,6 +1,7 @@
 package switchers
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/pojntfx/gloeth/v3/pkg/wrappers"
@@ -60,8 +61,28 @@ func (t *TCP) Register(mac *net.HardwareAddr, conn *net.TCPConn) {
 }
 
 // GetConnectionsForMAC gets the connections for a given MAC address
-func (t *TCP) GetConnectionsForMAC(mac *net.HardwareAddr) ([]*net.TCPConn, error) {
-	return []*net.TCPConn{}, nil
+func (t *TCP) GetConnectionsForMAC(destMAC, srcMAC *net.HardwareAddr) ([]*net.TCPConn, error) {
+	dest := destMAC.String()
+	src := srcMAC.String()
+
+	if dest == "ff:ff:ff:ff:ff:ff" {
+		connsToReturn := []*net.TCPConn{}
+
+		for _, conn := range t.conns {
+			if dest != src {
+				connsToReturn = append(connsToReturn, conn)
+			}
+		}
+
+		return connsToReturn, nil
+	}
+
+	conn := t.conns[dest]
+	if conn == nil {
+		return []*net.TCPConn{}, fmt.Errorf("no connection found for dest %v", dest)
+	}
+
+	return []*net.TCPConn{conn}, nil
 }
 
 // Write writes to a connection on the TCP switcher

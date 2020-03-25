@@ -46,7 +46,7 @@ func main() {
 		for {
 			inFrame := <-devChan
 
-			addr, err := enco.GetDestMACAddress(inFrame)
+			destMAC, srcMAC, err := enco.GetMACAddresses(inFrame)
 			if err != nil {
 				log.Println(err)
 
@@ -60,7 +60,7 @@ func main() {
 				continue
 			}
 
-			outFrame, err := wpr.Wrap(addr, encrFrame)
+			outFrame, err := wpr.Wrap(destMAC, srcMAC, encrFrame)
 			if err != nil {
 				log.Println(err)
 
@@ -78,7 +78,7 @@ func main() {
 	for {
 		inFrame := <-connChan
 
-		_, dewrpFrame, err := wpr.Unwrap(inFrame)
+		_, _, dewrpFrame, err := wpr.Unwrap(inFrame)
 		if err != nil {
 			log.Println(err)
 
