@@ -5,11 +5,11 @@ import (
 )
 
 const (
-	EncryptedFrameSize = 1450                                  // EncryptedFrameSize is the size of a encrypted, non-wrapped frame
-	WrappedFrameSize   = 1500                                  // WrappedFrameSize is the size of a wrapped frame
-	HeaderSize         = WrappedFrameSize - EncryptedFrameSize // HeaderSize is the size of the header
-	DestSize           = 17                                    // DestSize is the size of the dest address
-	SrcSize            = 17                                    // SrcSize is the size of the dest address
+	WrappedFrameSize   = 1500                          // WrappedFrameSize is the size of a wrapped frame
+	HeaderSize         = 50                            // HeaderSize is the size of the header
+	HeaderDestSize     = 17                            // DestSize is the size of the dest address
+	HeaderSrcSize      = 17                            // SrcSize is the size of the dest address
+	EncryptedFrameSize = WrappedFrameSize - HeaderSize // EncryptedFrameSize is the size of a encrypted, non-wrapped frame
 )
 
 // Ethernet wraps and unwraps ethernet frames
@@ -26,15 +26,15 @@ func NewEthernet() *Ethernet {
 func (e *Ethernet) Wrap(dest, src *net.HardwareAddr, frame [EncryptedFrameSize]byte) ([WrappedFrameSize]byte, error) {
 	outFrame := [WrappedFrameSize]byte{}
 
-	outDest := [DestSize]byte{}
+	outDest := [HeaderDestSize]byte{}
 	copy(outDest[:], dest.String())
 
-	outSrc := [SrcSize]byte{}
+	outSrc := [HeaderSrcSize]byte{}
 	copy(outSrc[:], src.String())
 
 	outHeader := [HeaderSize]byte{}
-	copy(outHeader[:DestSize], outDest[:])
-	copy(outHeader[DestSize:DestSize+SrcSize], outSrc[:])
+	copy(outHeader[:HeaderDestSize], outDest[:])
+	copy(outHeader[HeaderDestSize:HeaderDestSize+HeaderSrcSize], outSrc[:])
 
 	copy(outFrame[:HeaderSize], outHeader[:])
 	copy(outFrame[HeaderSize:], frame[:])
@@ -46,12 +46,12 @@ func (e *Ethernet) Wrap(dest, src *net.HardwareAddr, frame [EncryptedFrameSize]b
 func (e *Ethernet) Unwrap(frame [WrappedFrameSize]byte) (*net.HardwareAddr, *net.HardwareAddr, [EncryptedFrameSize]byte, error) {
 	outHeader := frame[:HeaderSize]
 
-	outDest, err := net.ParseMAC(string(outHeader[:DestSize]))
+	outDest, err := net.ParseMAC(string(outHeader[:HeaderDestSize]))
 	if err != nil {
 		return nil, nil, [EncryptedFrameSize]byte{}, err
 	}
 
-	outSrc, err := net.ParseMAC(string(outHeader[DestSize : DestSize+SrcSize]))
+	outSrc, err := net.ParseMAC(string(outHeader[HeaderDestSize : HeaderDestSize+HeaderSrcSize]))
 	if err != nil {
 		return &outDest, nil, [EncryptedFrameSize]byte{}, err
 	}

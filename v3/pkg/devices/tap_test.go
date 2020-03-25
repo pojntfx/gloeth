@@ -43,6 +43,10 @@ func getDev(name string, mtu uint) (*water.Interface, error) {
 	return dev, nil
 }
 
+func closeDev(dev *water.Interface) error {
+	return dev.Close()
+}
+
 func TestNewTAP(t *testing.T) {
 	readChan := make(chan [encryptors.PlaintextFrameSize]byte)
 	mtu := uint(MTU)
@@ -139,7 +143,7 @@ func TestTAP_Open(t *testing.T) {
 				t.Errorf("TAP.Open() mtu = %v, want %v", actualMTU, tt.expectedMTU)
 			}
 
-			if err := s.dev.Close(); err != nil {
+			if err := closeDev(s.dev); err != nil {
 				t.Error(err)
 			}
 		})
