@@ -43,6 +43,18 @@ func main() {
 	wpr := wrappers.NewEthernet()
 
 	go func() {
+		if err := dev.Read(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	go func() {
+		if err := conn.Read(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	go func() {
 		for {
 			inFrame := <-devChan
 

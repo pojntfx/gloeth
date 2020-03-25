@@ -21,7 +21,8 @@ func main() {
 	readChan := make(chan [wrappers.WrappedFrameSize]byte)
 	connChan := make(chan *net.TCPConn)
 
-	switcher := switchers.NewTCP(readChan, connChan, laddr)
+	conns := make(map[string]*net.TCPConn)
+	switcher := switchers.NewTCP(readChan, connChan, laddr, conns)
 
 	defer switcher.Close()
 	if err := switcher.Open(); err != nil {
@@ -29,6 +30,12 @@ func main() {
 	}
 
 	wpr := wrappers.NewEthernet()
+
+	go func() {
+		if err := switcher.Read(); err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	go func() {
 		conn := <-connChan

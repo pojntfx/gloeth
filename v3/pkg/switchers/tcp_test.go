@@ -73,11 +73,13 @@ func TestNewTCP(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	expectedConns := make(map[string]*net.TCPConn)
 
 	type args struct {
 		readChan   chan [wrappers.WrappedFrameSize]byte
 		connChan   chan *net.TCPConn
 		listenAddr *net.TCPAddr
+		conns      map[string]*net.TCPConn
 	}
 	tests := []struct {
 		name string
@@ -90,19 +92,20 @@ func TestNewTCP(t *testing.T) {
 				expectedReadChan,
 				expectedConnChan,
 				expectedLaddr,
+				expectedConns,
 			},
 			&TCP{
 				expectedReadChan,
 				expectedConnChan,
 				expectedLaddr,
 				nil,
-				nil,
+				expectedConns,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewTCP(tt.args.readChan, tt.args.connChan, tt.args.listenAddr); !reflect.DeepEqual(got, tt.want) {
+			if got := NewTCP(tt.args.readChan, tt.args.connChan, tt.args.listenAddr, tt.args.conns); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewTCP() = %v, want %v", got, tt.want)
 			}
 		})
