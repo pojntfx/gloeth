@@ -28,6 +28,7 @@ func main() {
 	if err := switcher.Open(); err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("listening on %v", laddr)
 
 	wpr := wrappers.NewEthernet()
 
@@ -47,12 +48,14 @@ func main() {
 
 					_, err := conn.Read(inFrame[:])
 					if err != nil {
-						log.Fatal(err)
+						log.Printf("could not read from connection: %v", err)
+
+						break
 					}
 
 					_, sourceMAC, _, err := wpr.Unwrap(inFrame)
 					if err != nil {
-						log.Println(err)
+						log.Printf("could not unwrap frame: %v", err)
 
 						continue
 					}
@@ -70,21 +73,21 @@ func main() {
 
 		destMAC, sourceMAC, _, err := wpr.Unwrap(inFrame)
 		if err != nil {
-			log.Println(err)
+			log.Printf("could not unwrap frame: %v", err)
 
 			continue
 		}
 
 		conns, err := switcher.GetConnectionsForMAC(destMAC, sourceMAC)
 		if err != nil {
-			log.Println(err)
+			log.Printf("could not get connections: %v", err)
 
 			continue
 		}
 
 		for _, conn := range conns {
 			if err := switcher.Write(conn, inFrame); err != nil {
-				log.Println(err)
+				log.Printf("could not write to connection: %v", err)
 			}
 		}
 	}
