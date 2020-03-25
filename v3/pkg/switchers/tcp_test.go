@@ -27,6 +27,16 @@ func getConn(raddr *net.TCPAddr) (*net.TCPConn, error) {
 	return conn, nil
 }
 
+func getFrame() [wrappers.WrappedFrameSize]byte {
+	return [wrappers.WrappedFrameSize]byte{1}
+}
+
+func writeFrame(conn *net.TCPConn, frame [wrappers.WrappedFrameSize]byte) error {
+	_, err := conn.Write(frame[:])
+
+	return err
+}
+
 func TestNewTCP(t *testing.T) {
 	expectedReadChan := make(chan [wrappers.WrappedFrameSize]byte)
 	expectedLaddr, _, err := getListener()
@@ -173,6 +183,78 @@ func TestTCP_Close(t *testing.T) {
 			}
 			if err := s.Close(); (err != nil) != tt.wantErr {
 				t.Errorf("TCP.Close() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestTCP_Read(t *testing.T) {
+	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	laddr, listener, err := getListener()
+	if err != nil {
+		t.Error(err)
+	}
+	conn, err := getConn(laddr)
+	expectedFrame := getFrame()
+
+	type fields struct {
+		readChan chan [wrappers.WrappedFrameSize]byte
+		laddr    *net.TCPAddr
+		listener *net.TCPListener
+		conns    []map[string]*net.TCPConn
+	}
+	tests := []struct {
+		name               string
+		fields             fields
+		frameToWrite, want [wrappers.WrappedFrameSize]byte
+		framesToTransceive uint
+		wantErr            bool
+	}{
+		{
+			"Read",
+			fields{
+				readChan,
+				laddr,
+				listener,
+				nil,
+			},
+			expectedFrame,
+			expectedFrame,
+			5,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &TCP{
+				readChan: tt.fields.readChan,
+				laddr:    tt.fields.laddr,
+				listener: tt.fields.listener,
+				conns:    tt.fields.conns,
+			}
+
+			go func() {
+				if err := s.Read(); (err != nil) != tt.wantErr {
+					t.Errorf("TCP.Read() error = %v, wantErr %v", err, tt.wantErr)
+				}
+			}()
+
+			go func() {
+				time.Sleep(time.Millisecond * 5)
+
+				for i := 0; i < int(tt.framesToTransceive); i++ {
+					if err := writeFrame(conn, expectedFrame); err != nil {
+						t.Error(err)
+					}
+				}
+			}()
+
+			for i := 0; i < int(tt.framesToTransceive); i++ {
+				got := <-readChan
+
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("TCP.Read() = %v, want %v", got, tt.want)
+				}
 			}
 		})
 	}

@@ -1,6 +1,7 @@
 package switchers
 
 import (
+	"log"
 	"net"
 
 	"github.com/pojntfx/gloeth/v3/pkg/wrappers"
@@ -38,7 +39,26 @@ func (t *TCP) Close() error {
 
 // Read reads from the TCP switcher
 func (t *TCP) Read() error {
-	return nil
+	for {
+		conn, err := t.listener.AcceptTCP()
+		if err != nil {
+			return err
+		}
+
+		// TODO: Decompose to main method
+		go func() {
+			for {
+				readFrame := [wrappers.WrappedFrameSize]byte{}
+
+				_, err := conn.Read(readFrame[:])
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				t.readChan <- readFrame
+			}
+		}()
+	}
 }
 
 // Write writes to a connection on the TCP switcher
