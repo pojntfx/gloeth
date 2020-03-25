@@ -570,3 +570,98 @@ func TestTCP_GetConnectionsForMAC(t *testing.T) {
 		})
 	}
 }
+
+func TestTCP_Write(t *testing.T) {
+	readChan := make(chan [wrappers.WrappedFrameSize]byte)
+	connChan := make(chan *net.TCPConn)
+	laddr, listener, err := getListener()
+	if err != nil {
+		t.Error(err)
+	}
+	conn, err := getConn(laddr)
+	if err != nil {
+		t.Error(err)
+	}
+	expectedFrame := getFrame()
+
+	type fields struct {
+		readChan chan [wrappers.WrappedFrameSize]byte
+		connChan chan *net.TCPConn
+		laddr    *net.TCPAddr
+		listener *net.TCPListener
+		conns    map[string]*net.TCPConn
+	}
+	type args struct {
+		conn  *net.TCPConn
+		frame [wrappers.WrappedFrameSize]byte
+	}
+	tests := []struct {
+		name               string
+		fields             fields
+		args               args
+		framesToTransceive uint
+		want               [wrappers.WrappedFrameSize]byte
+		wantErr            bool
+	}{
+		{
+			"Write",
+			fields{
+				readChan,
+				connChan,
+				nil,
+				nil,
+				nil,
+			},
+			args{
+				conn,
+				expectedFrame,
+			},
+			5,
+			expectedFrame,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &TCP{
+				readChan: tt.fields.readChan,
+				connChan: tt.fields.connChan,
+				laddr:    tt.fields.laddr,
+				listener: tt.fields.listener,
+				conns:    tt.fields.conns,
+			}
+
+			doneChan := make(chan bool)
+
+			go func() {
+				time.Sleep(time.Millisecond * 5)
+
+				conn, err := listener.AcceptTCP()
+				if err != nil {
+					t.Error(err)
+				}
+
+				for i := 0; i < int(tt.framesToTransceive); i++ {
+					got, err := readFrame(conn)
+					if err != nil {
+						t.Error(err)
+					}
+
+					if !reflect.DeepEqual(got, tt.want) {
+						t.Errorf("read(TCP.Write()) = %v, want %v", got, tt.want)
+					}
+				}
+
+				doneChan <- true
+			}()
+
+			for i := 0; i < int(tt.framesToTransceive); i++ {
+				if err := s.Write(tt.args.conn, tt.args.frame); (err != nil) != tt.wantErr {
+					t.Errorf("TCP.Write() error = %v, wantErr %v", err, tt.wantErr)
+				}
+			}
+
+			<-doneChan
+		})
+	}
+}

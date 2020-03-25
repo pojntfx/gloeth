@@ -87,5 +87,7 @@ func (t *TCP) GetConnectionsForMAC(destMAC, srcMAC *net.HardwareAddr) ([]*net.TC
 
 // Write writes to a connection on the TCP switcher
 func (t *TCP) Write(conn *net.TCPConn, frame [wrappers.WrappedFrameSize]byte) error {
-	return nil
+	_, err := conn.Write(frame[:])
+
+	return err
 }
