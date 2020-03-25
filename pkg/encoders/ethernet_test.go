@@ -8,7 +8,7 @@ import (
 
 	gm "github.com/cseeger-epages/mac-gen-go"
 	"github.com/pojntfx/ethernet"
-	"github.com/pojntfx/gloeth/v3/pkg/encryptors"
+	"github.com/pojntfx/gloeth/pkg/encryptors"
 )
 
 func getMACAddress() (net.HardwareAddr, error) {

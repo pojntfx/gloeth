@@ -6,7 +6,7 @@ import (
 	"crypto/rand"
 	"io"
 
-	"github.com/pojntfx/gloeth/v3/pkg/wrappers"
+	"github.com/pojntfx/gloeth/pkg/wrappers"
 )
 
 const (

@@ -3,7 +3,7 @@ package connections
 import (
 	"net"
 
-	"github.com/pojntfx/gloeth/v3/pkg/wrappers"
+	"github.com/pojntfx/gloeth/pkg/wrappers"
 )
 
 // TCPSwitcher is a connection to a TCP switcher

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pojntfx/gloeth/v3/pkg/wrappers"
+	"github.com/pojntfx/gloeth/pkg/wrappers"
 )
 
 func getListener() (*net.TCPAddr, *net.TCPListener, error) {
