@@ -1,7 +1,6 @@
 package switchers
 
 import (
-	"log"
 	"net"
 
 	"github.com/pojntfx/gloeth/v3/pkg/wrappers"
@@ -10,14 +9,15 @@ import (
 // TCP switches TCP connections
 type TCP struct {
 	readChan chan [wrappers.WrappedFrameSize]byte
+	connChan chan *net.TCPConn
 	laddr    *net.TCPAddr
 	listener *net.TCPListener
-	conns    []map[string]*net.TCPConn
+	conns    map[string]*net.TCPConn
 }
 
 // NewTCP creates a new TCP switcher
-func NewTCP(readChan chan [wrappers.WrappedFrameSize]byte, laddr *net.TCPAddr) *TCP {
-	return &TCP{readChan, laddr, nil, nil}
+func NewTCP(readChan chan [wrappers.WrappedFrameSize]byte, connChan chan *net.TCPConn, laddr *net.TCPAddr) *TCP {
+	return &TCP{readChan, connChan, laddr, nil, nil}
 }
 
 // Open opens the TCP switcher
@@ -45,28 +45,26 @@ func (t *TCP) Read() error {
 			return err
 		}
 
-		// TODO: Decompose to main method
-		go func() {
-			for {
-				readFrame := [wrappers.WrappedFrameSize]byte{}
-
-				_, err := conn.Read(readFrame[:])
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				t.readChan <- readFrame
-			}
-		}()
+		t.connChan <- conn
 	}
 }
 
-// Write writes to a connection on the TCP switcher
-func (t *TCP) Write(conn *net.TCPConn, frame [wrappers.WrappedFrameSize]byte) error {
-	return nil
+// HandleFrame handles a frame
+func (t *TCP) HandleFrame(frame [wrappers.WrappedFrameSize]byte) {
+	t.readChan <- frame
+}
+
+// Register registers a TCP connection
+func (t *TCP) Register(mac *net.HardwareAddr, conn *net.TCPConn) {
+	t.conns[mac.String()] = conn
 }
 
 // GetConnectionsForMAC gets the connections for a given MAC address
 func (t *TCP) GetConnectionsForMAC(mac *net.HardwareAddr) ([]*net.TCPConn, error) {
 	return []*net.TCPConn{}, nil
+}
+
+// Write writes to a connection on the TCP switcher
+func (t *TCP) Write(conn *net.TCPConn, frame [wrappers.WrappedFrameSize]byte) error {
+	return nil
 }

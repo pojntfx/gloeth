@@ -163,6 +163,9 @@ func TestTCPSwitcher_Close(t *testing.T) {
 		t.Error(err)
 	}
 	conn, err := getConn(raddr)
+	if err != nil {
+		t.Error(err)
+	}
 
 	type fields struct {
 		readChan   chan [wrappers.WrappedFrameSize]byte
@@ -205,6 +208,9 @@ func TestTCPSwitcher_Read(t *testing.T) {
 		t.Error(err)
 	}
 	conn, err := getConn(raddr)
+	if err != nil {
+		t.Error(err)
+	}
 	expectedFrame := getFrame()
 
 	type fields struct {
@@ -279,6 +285,9 @@ func TestTCPSwitcher_Write(t *testing.T) {
 		t.Error(err)
 	}
 	conn, err := getConn(raddr)
+	if err != nil {
+		t.Error(err)
+	}
 	expectedFrame := getFrame()
 
 	type fields struct {
