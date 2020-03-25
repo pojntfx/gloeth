@@ -17,8 +17,8 @@ type TCP struct {
 }
 
 // NewTCP creates a new TCP switcher
-func NewTCP(readChan chan [wrappers.WrappedFrameSize]byte, connChan chan *net.TCPConn, laddr *net.TCPAddr) *TCP {
-	return &TCP{readChan, connChan, laddr, nil, nil}
+func NewTCP(readChan chan [wrappers.WrappedFrameSize]byte, connChan chan *net.TCPConn, laddr *net.TCPAddr, conns map[string]*net.TCPConn) *TCP {
+	return &TCP{readChan, connChan, laddr, nil, conns}
 }
 
 // Open opens the TCP switcher
