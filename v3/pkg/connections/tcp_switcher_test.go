@@ -10,7 +10,7 @@ import (
 	"github.com/pojntfx/gloeth/v3/pkg/wrappers"
 )
 
-func getListenAddrWithFreePort() (*net.TCPAddr, *net.TCPListener, error) {
+func getListener() (*net.TCPAddr, *net.TCPListener, error) {
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return nil, nil, err
@@ -19,7 +19,7 @@ func getListenAddrWithFreePort() (*net.TCPAddr, *net.TCPListener, error) {
 	return l.Addr().(*net.TCPAddr), l.(*net.TCPListener), err
 }
 
-func waitForConnection(listener *net.TCPListener) error {
+func waitForConn(listener *net.TCPListener) error {
 	if _, err := listener.AcceptTCP(); err != nil {
 		return err
 	}
@@ -27,7 +27,7 @@ func waitForConnection(listener *net.TCPListener) error {
 	return nil
 }
 
-func getConnection(raddr *net.TCPAddr) (*net.TCPConn, error) {
+func getConn(raddr *net.TCPAddr) (*net.TCPConn, error) {
 	conn, err := net.DialTCP("tcp", nil, raddr)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func readFrame(conn *net.TCPConn) ([wrappers.WrappedFrameSize]byte, error) {
 
 func TestNewTCPSwitcher(t *testing.T) {
 	expectedReadChan := make(chan [wrappers.WrappedFrameSize]byte)
-	expectedRemoteAddr, _, err := getListenAddrWithFreePort()
+	expectedRaddr, _, err := getListener()
 	if err != nil {
 		t.Error(err)
 	}
@@ -77,11 +77,11 @@ func TestNewTCPSwitcher(t *testing.T) {
 			"New",
 			args{
 				expectedReadChan,
-				expectedRemoteAddr,
+				expectedRaddr,
 			},
 			&TCPSwitcher{
 				expectedReadChan,
-				expectedRemoteAddr,
+				expectedRaddr,
 				nil,
 			},
 		},
@@ -97,7 +97,7 @@ func TestNewTCPSwitcher(t *testing.T) {
 
 func TestTCPSwitcher_Open(t *testing.T) {
 	readChan := make(chan [wrappers.WrappedFrameSize]byte)
-	remoteAddr, listener, err := getListenAddrWithFreePort()
+	raddr, listener, err := getListener()
 	if err != nil {
 		t.Error(err)
 	}
@@ -116,7 +116,7 @@ func TestTCPSwitcher_Open(t *testing.T) {
 			"Open",
 			fields{
 				readChan,
-				remoteAddr,
+				raddr,
 				nil,
 			},
 			false,
@@ -125,9 +125,9 @@ func TestTCPSwitcher_Open(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &TCPSwitcher{
-				readChan:   tt.fields.readChan,
-				remoteAddr: tt.fields.remoteAddr,
-				conn:       tt.fields.conn,
+				readChan: tt.fields.readChan,
+				raddr:    tt.fields.remoteAddr,
+				conn:     tt.fields.conn,
 			}
 			if err := s.Open(); (err != nil) != tt.wantErr {
 				t.Errorf("TCPSwitcher.Open() error = %v, wantErr %v", err, tt.wantErr)
@@ -142,7 +142,7 @@ func TestTCPSwitcher_Open(t *testing.T) {
 			}()
 
 			go func() {
-				if err := waitForConnection(listener); err != nil {
+				if err := waitForConn(listener); err != nil {
 					t.Errorf("TCPSwitcher.Open() did not connect to TCP server: %v", err)
 				}
 
@@ -158,11 +158,11 @@ func TestTCPSwitcher_Open(t *testing.T) {
 
 func TestTCPSwitcher_Close(t *testing.T) {
 	readChan := make(chan [wrappers.WrappedFrameSize]byte)
-	remoteAddr, _, err := getListenAddrWithFreePort()
+	raddr, _, err := getListener()
 	if err != nil {
 		t.Error(err)
 	}
-	conn, err := getConnection(remoteAddr)
+	conn, err := getConn(raddr)
 
 	type fields struct {
 		readChan   chan [wrappers.WrappedFrameSize]byte
@@ -179,7 +179,7 @@ func TestTCPSwitcher_Close(t *testing.T) {
 			fields{
 				readChan:   readChan,
 				conn:       conn,
-				remoteAddr: remoteAddr,
+				remoteAddr: raddr,
 			},
 			false,
 		},
@@ -187,9 +187,9 @@ func TestTCPSwitcher_Close(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &TCPSwitcher{
-				readChan:   tt.fields.readChan,
-				remoteAddr: tt.fields.remoteAddr,
-				conn:       tt.fields.conn,
+				readChan: tt.fields.readChan,
+				raddr:    tt.fields.remoteAddr,
+				conn:     tt.fields.conn,
 			}
 			if err := s.Close(); (err != nil) != tt.wantErr {
 				t.Errorf("TCPSwitcher.Close() error = %v, wantErr %v", err, tt.wantErr)
@@ -200,11 +200,11 @@ func TestTCPSwitcher_Close(t *testing.T) {
 
 func TestTCPSwitcher_Read(t *testing.T) {
 	readChan := make(chan [wrappers.WrappedFrameSize]byte)
-	remoteAddr, listener, err := getListenAddrWithFreePort()
+	raddr, listener, err := getListener()
 	if err != nil {
 		t.Error(err)
 	}
-	conn, err := getConnection(remoteAddr)
+	conn, err := getConn(raddr)
 	expectedFrame := getFrame()
 
 	type fields struct {
@@ -224,7 +224,7 @@ func TestTCPSwitcher_Read(t *testing.T) {
 			fields{
 				readChan:   readChan,
 				conn:       conn,
-				remoteAddr: remoteAddr,
+				remoteAddr: raddr,
 			},
 			expectedFrame,
 			expectedFrame,
@@ -235,9 +235,9 @@ func TestTCPSwitcher_Read(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &TCPSwitcher{
-				readChan:   tt.fields.readChan,
-				remoteAddr: tt.fields.remoteAddr,
-				conn:       tt.fields.conn,
+				readChan: tt.fields.readChan,
+				raddr:    tt.fields.remoteAddr,
+				conn:     tt.fields.conn,
 			}
 
 			go func() {
@@ -274,11 +274,11 @@ func TestTCPSwitcher_Read(t *testing.T) {
 
 func TestTCPSwitcher_Write(t *testing.T) {
 	readChan := make(chan [wrappers.WrappedFrameSize]byte)
-	remoteAddr, listener, err := getListenAddrWithFreePort()
+	raddr, listener, err := getListener()
 	if err != nil {
 		t.Error(err)
 	}
-	conn, err := getConnection(remoteAddr)
+	conn, err := getConn(raddr)
 	expectedFrame := getFrame()
 
 	type fields struct {
@@ -301,7 +301,7 @@ func TestTCPSwitcher_Write(t *testing.T) {
 			"Write",
 			fields{
 				readChan,
-				remoteAddr,
+				raddr,
 				conn,
 			},
 			args{
@@ -315,9 +315,9 @@ func TestTCPSwitcher_Write(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &TCPSwitcher{
-				readChan:   tt.fields.readChan,
-				remoteAddr: tt.fields.remoteAddr,
-				conn:       tt.fields.conn,
+				readChan: tt.fields.readChan,
+				raddr:    tt.fields.remoteAddr,
+				conn:     tt.fields.conn,
 			}
 
 			doneChan := make(chan bool)

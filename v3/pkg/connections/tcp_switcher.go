@@ -8,19 +8,19 @@ import (
 
 // TCPSwitcher is a connection to a TCP switcher
 type TCPSwitcher struct {
-	readChan   chan [wrappers.WrappedFrameSize]byte
-	remoteAddr *net.TCPAddr
-	conn       *net.TCPConn
+	readChan chan [wrappers.WrappedFrameSize]byte
+	raddr    *net.TCPAddr
+	conn     *net.TCPConn
 }
 
 // NewTCPSwitcher creates a new TCP switcher connection
-func NewTCPSwitcher(readChan chan [wrappers.WrappedFrameSize]byte, remoteAddr *net.TCPAddr) *TCPSwitcher {
-	return &TCPSwitcher{readChan, remoteAddr, nil}
+func NewTCPSwitcher(readChan chan [wrappers.WrappedFrameSize]byte, raddr *net.TCPAddr) *TCPSwitcher {
+	return &TCPSwitcher{readChan, raddr, nil}
 }
 
 // Open opens the connection to the TCP switcher
 func (t *TCPSwitcher) Open() error {
-	conn, err := net.DialTCP("tcp", nil, t.remoteAddr)
+	conn, err := net.DialTCP("tcp", nil, t.raddr)
 	if err != nil {
 		return err
 	}
