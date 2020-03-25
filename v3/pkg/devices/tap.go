@@ -16,11 +16,12 @@ type TAP struct {
 	mtu      uint
 	name     string
 	dev      *water.Interface
+	closed   bool
 }
 
 // NewTAP creates a new TAP device
 func NewTAP(readChan chan [encryptors.PlaintextFrameSize]byte, mtu uint, name string) *TAP {
-	return &TAP{readChan, mtu, name, nil}
+	return &TAP{readChan, mtu, name, nil, true}
 }
 
 // Open opens the TAP device
@@ -49,22 +50,33 @@ func (t *TAP) Open() error {
 	}
 
 	t.dev = dev
+	t.closed = false
 
 	return nil
 }
 
 // Close closes the TAP device
 func (t *TAP) Close() error {
+	t.closed = true
+
 	return t.dev.Close()
 }
 
 // Read reads from the TAP device
 func (t *TAP) Read() error {
 	for {
+		if t.closed {
+			return nil
+		}
+
 		readFrame := [encryptors.PlaintextFrameSize]byte{}
 
 		_, err := t.dev.Read(readFrame[:])
 		if err != nil {
+			if t.closed {
+				return nil
+			}
+
 			return err
 		}
 

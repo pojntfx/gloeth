@@ -46,8 +46,10 @@ func getDev(name string, mtu uint) (*water.Interface, error) {
 	return dev, nil
 }
 
-func closeDev(dev *water.Interface) error {
-	return dev.Close()
+func closeDev(dev *TAP) error {
+	dev.closed = true
+
+	return dev.dev.Close()
 }
 
 func writeTestFrame(devName, content string) error {
@@ -124,6 +126,7 @@ func TestNewTAP(t *testing.T) {
 				mtu,
 				name,
 				nil,
+				true,
 			},
 		},
 	}
@@ -149,6 +152,7 @@ func TestTAP_Open(t *testing.T) {
 		readChan chan [encryptors.PlaintextFrameSize]byte
 		mtu      uint
 		name     string
+		closed   bool
 	}
 	tests := []struct {
 		name         string
@@ -163,6 +167,7 @@ func TestTAP_Open(t *testing.T) {
 				readChan,
 				mtu,
 				name,
+				true,
 			},
 			name,
 			mtu,
@@ -175,6 +180,7 @@ func TestTAP_Open(t *testing.T) {
 				readChan: tt.fields.readChan,
 				mtu:      tt.fields.mtu,
 				name:     tt.fields.name,
+				closed:   tt.fields.closed,
 			}
 			if err := s.Open(); (err != nil) != tt.wantErr {
 				t.Errorf("TAP.Open() error = %v, wantErr %v", err, tt.wantErr)
@@ -193,7 +199,7 @@ func TestTAP_Open(t *testing.T) {
 				t.Errorf("TAP.Open() mtu = %v, want %v", actualMTU, tt.expectedMTU)
 			}
 
-			if err := closeDev(s.dev); err != nil {
+			if err := closeDev(s); err != nil {
 				t.Error(err)
 			}
 		})
@@ -218,6 +224,7 @@ func TestTAP_Close(t *testing.T) {
 		mtu      uint
 		name     string
 		dev      *water.Interface
+		closed   bool
 	}
 	tests := []struct {
 		name    string
@@ -231,6 +238,7 @@ func TestTAP_Close(t *testing.T) {
 				mtu,
 				name,
 				dev,
+				false,
 			},
 			false,
 		},
@@ -242,9 +250,13 @@ func TestTAP_Close(t *testing.T) {
 				mtu:      tt.fields.mtu,
 				name:     tt.fields.name,
 				dev:      tt.fields.dev,
+				closed:   tt.fields.closed,
 			}
 			if err := s.Close(); (err != nil) != tt.wantErr {
 				t.Errorf("TAP.Close() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if s.closed != true {
+				t.Errorf("TAP.Close() closed = %v, wantErr %v", s.closed, true)
 			}
 		})
 	}
@@ -269,6 +281,7 @@ func TestTAP_Read(t *testing.T) {
 		mtu      uint
 		name     string
 		dev      *water.Interface
+		closed   bool
 	}
 	tests := []struct {
 		name                 string
@@ -284,6 +297,7 @@ func TestTAP_Read(t *testing.T) {
 				mtu,
 				name,
 				dev,
+				false,
 			},
 			expectedContent,
 			expectedContent,
@@ -298,6 +312,7 @@ func TestTAP_Read(t *testing.T) {
 				mtu:      tt.fields.mtu,
 				name:     tt.fields.name,
 				dev:      tt.fields.dev,
+				closed:   tt.fields.closed,
 			}
 
 			go func() {
@@ -306,12 +321,15 @@ func TestTAP_Read(t *testing.T) {
 				}
 			}()
 
+			doneChan := make(chan bool)
 			go func() {
 				for i := 0; i < int(tt.framesToTransceive); i++ {
 					if err := writeTestFrame(s.name, tt.contentToWrite); err != nil {
 						t.Error(err)
 					}
 				}
+
+				doneChan <- true
 			}()
 
 			for matches := 0; matches < int(tt.framesToTransceive); matches++ {
@@ -333,7 +351,8 @@ func TestTAP_Read(t *testing.T) {
 				matches = matches - 1
 			}
 
-			if err := closeDev(s.dev); err != nil {
+			<-doneChan
+			if err := closeDev(s); err != nil {
 				t.Error(err)
 			}
 		})
@@ -359,6 +378,7 @@ func TestTAP_Write(t *testing.T) {
 		mtu      uint
 		name     string
 		dev      *water.Interface
+		closed   bool
 	}
 	type args struct {
 		frame [encryptors.PlaintextFrameSize]byte
@@ -376,6 +396,7 @@ func TestTAP_Write(t *testing.T) {
 				mtu,
 				name,
 				dev,
+				false,
 			},
 			args{
 				frameToWrite,
@@ -390,13 +411,14 @@ func TestTAP_Write(t *testing.T) {
 				mtu:      tt.fields.mtu,
 				name:     tt.fields.name,
 				dev:      tt.fields.dev,
+				closed:   tt.fields.closed,
 			}
 
 			if err := s.Write(tt.args.frame); (err != nil) != tt.wantErr {
 				t.Errorf("TAP.Write() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if err := closeDev(s.dev); err != nil {
+			if err := closeDev(s); err != nil {
 				t.Error(err)
 			}
 		})
