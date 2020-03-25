@@ -8,17 +8,26 @@ import (
 
 // TCP switches TCP connections
 type TCP struct {
-	readChan   chan [wrappers.WrappedFrameSize]byte
-	listenAddr *net.TCPAddr
+	readChan chan [wrappers.WrappedFrameSize]byte
+	laddr    *net.TCPAddr
+	listener *net.TCPListener
+	conns    []map[string]*net.TCPConn
 }
 
 // NewTCP creates a new TCP switcher
-func NewTCP(readChan chan [wrappers.WrappedFrameSize]byte, listenAddr *net.TCPAddr) *TCP {
-	return &TCP{readChan, listenAddr}
+func NewTCP(readChan chan [wrappers.WrappedFrameSize]byte, laddr *net.TCPAddr) *TCP {
+	return &TCP{readChan, laddr, nil, nil}
 }
 
 // Open opens the TCP switcher
 func (t *TCP) Open() error {
+	l, err := net.ListenTCP("tcp", t.laddr)
+	if err != nil {
+		return err
+	}
+
+	t.listener = l
+
 	return nil
 }
 
