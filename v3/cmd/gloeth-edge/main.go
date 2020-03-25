@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"net"
+	"time"
 
 	"github.com/pojntfx/gloeth/v3/pkg/connections"
 	"github.com/pojntfx/gloeth/v3/pkg/devices"
@@ -37,6 +38,7 @@ func main() {
 	if err := conn.Open(); err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("successfully connected to supernode %v", saddr)
 
 	enco := encoders.NewEthernet()
 	encr := encryptors.NewEthernet(*key)
@@ -49,8 +51,22 @@ func main() {
 	}()
 
 	go func() {
-		if err := conn.Read(); err != nil {
-			log.Fatal(err)
+		timeTillReconnect := time.Millisecond * 250
+
+		for {
+			if err := conn.Read(); err != nil {
+				log.Printf("could not read from supernode %v due to error %v, retrying in %v", saddr, err, timeTillReconnect)
+			}
+
+			time.Sleep(timeTillReconnect)
+
+			if err := conn.Open(); err != nil {
+				log.Printf("could not connect to supernode %v due to error %v, retrying now", saddr, err)
+
+				continue
+			}
+
+			log.Printf("successfully reconnected to supernode %v", saddr)
 		}
 	}()
 
