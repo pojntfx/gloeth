@@ -4,7 +4,7 @@ import (
 	"net"
 
 	"github.com/pojntfx/ethernet"
-	"github.com/pojntfx/gloeth/v3/pkg/encryptors"
+	"github.com/pojntfx/gloeth/pkg/encryptors"
 )
 
 // Ethernet is an ethernet decoder

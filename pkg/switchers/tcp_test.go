@@ -8,7 +8,7 @@ import (
 	"time"
 
 	gm "github.com/cseeger-epages/mac-gen-go"
-	"github.com/pojntfx/gloeth/v3/pkg/wrappers"
+	"github.com/pojntfx/gloeth/pkg/wrappers"
 )
 
 func getMACAddress() (net.HardwareAddr, error) {

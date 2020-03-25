@@ -6,11 +6,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/pojntfx/gloeth/v3/pkg/connections"
-	"github.com/pojntfx/gloeth/v3/pkg/devices"
-	"github.com/pojntfx/gloeth/v3/pkg/encoders"
-	"github.com/pojntfx/gloeth/v3/pkg/encryptors"
-	"github.com/pojntfx/gloeth/v3/pkg/wrappers"
+	"github.com/pojntfx/gloeth/pkg/connections"
+	"github.com/pojntfx/gloeth/pkg/devices"
+	"github.com/pojntfx/gloeth/pkg/encoders"
+	"github.com/pojntfx/gloeth/pkg/encryptors"
+	"github.com/pojntfx/gloeth/pkg/wrappers"
 )
 
 func main() {
