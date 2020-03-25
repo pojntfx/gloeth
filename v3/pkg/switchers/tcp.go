@@ -33,7 +33,7 @@ func (t *TCP) Open() error {
 
 // Close closes the TCP switcher
 func (t *TCP) Close() error {
-	return nil
+	return t.listener.Close()
 }
 
 // Read reads from the TCP switcher
