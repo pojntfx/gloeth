@@ -55,7 +55,7 @@ func (t *TAP) Open() error {
 
 // Close closes the TAP device
 func (t *TAP) Close() error {
-	return nil
+	return t.dev.Close()
 }
 
 // Read reads from the TAP device

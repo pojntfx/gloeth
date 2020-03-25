@@ -8,11 +8,39 @@ import (
 	"testing"
 
 	"github.com/pojntfx/gloeth/v3/pkg/encryptors"
+	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
 )
 
 func getDevName(seed int) string {
 	return fmt.Sprintf("testtap%v", seed+rand.Intn(99))
+}
+
+func getDev(name string, mtu uint) (*water.Interface, error) {
+	dev, err := water.New(water.Config{
+		DeviceType: water.TAP,
+		PlatformSpecificParams: water.PlatformSpecificParams{
+			Name: name,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	link, err := netlink.LinkByName(name)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := netlink.LinkSetMTU(link, int(mtu)); err != nil {
+		return nil, err
+	}
+
+	if err := netlink.LinkSetUp(link); err != nil {
+		return nil, err
+	}
+
+	return dev, nil
 }
 
 func TestNewTAP(t *testing.T) {
@@ -113,6 +141,56 @@ func TestTAP_Open(t *testing.T) {
 
 			if err := s.dev.Close(); err != nil {
 				t.Error(err)
+			}
+		})
+	}
+}
+
+func TestTAP_Close(t *testing.T) {
+	if os.Geteuid() != 0 && !testing.Short() {
+		t.Skip()
+	}
+
+	readChan := make(chan [encryptors.PlaintextFrameSize]byte)
+	mtu := uint(MTU)
+	name := getDevName(200)
+	dev, err := getDev(name, mtu)
+	if err != nil {
+		t.Error(err)
+	}
+
+	type fields struct {
+		readChan chan [encryptors.PlaintextFrameSize]byte
+		mtu      uint
+		name     string
+		dev      *water.Interface
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			"Close",
+			fields{
+				readChan,
+				mtu,
+				name,
+				dev,
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &TAP{
+				readChan: tt.fields.readChan,
+				mtu:      tt.fields.mtu,
+				name:     tt.fields.name,
+				dev:      tt.fields.dev,
+			}
+			if err := s.Close(); (err != nil) != tt.wantErr {
+				t.Errorf("TAP.Close() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
