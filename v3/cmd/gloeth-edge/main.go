@@ -17,6 +17,7 @@ func main() {
 	raddrFlag := flag.String("raddr", ":1234", "Supernode address")
 	key := flag.String("key", "my_preshared_key", "Preshared key")
 	name := flag.String("name", "tap0", "Device name")
+	verbose := flag.Bool("verbose", false, "Enable verbose mode")
 	flag.Parse()
 
 	raddr, err := net.ResolveTCPAddr("tcp", *raddrFlag)
@@ -74,6 +75,10 @@ func main() {
 		for {
 			inFrame := <-devChan
 
+			if *verbose {
+				log.Printf("READ frame from TAP device: %v", inFrame)
+			}
+
 			destMAC, srcMAC, err := enco.GetMACAddresses(inFrame)
 			if err != nil {
 				log.Printf("could not get MAC addresses from ethernet frame: %v", err)
@@ -95,6 +100,10 @@ func main() {
 				continue
 			}
 
+			if *verbose {
+				log.Printf("WRITING frame to supernode: %v", outFrame)
+			}
+
 			if err := conn.Write(outFrame); err != nil {
 				log.Printf("could not write frame to supernode: %v", err)
 
@@ -105,6 +114,10 @@ func main() {
 
 	for {
 		inFrame := <-connChan
+
+		if *verbose {
+			log.Printf("READ frame from supernode: %v", inFrame)
+		}
 
 		_, _, dewrpFrame, err := wpr.Unwrap(inFrame)
 		if err != nil {
@@ -118,6 +131,10 @@ func main() {
 			log.Printf("could not decrypt ethernet frame: %v", err)
 
 			continue
+		}
+
+		if *verbose {
+			log.Printf("WRITING frame to TAP device: %v", decrFrame)
 		}
 
 		if err := dev.Write(decrFrame); err != nil {
