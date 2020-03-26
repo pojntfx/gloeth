@@ -36,7 +36,7 @@ func TestGetDifferenceOfNestedArrays(t *testing.T) {
 		},
 	}
 
-	deletions := [][]string{
+	expectedDeletions := [][]string{
 		{
 			"b",
 			"c",
@@ -47,7 +47,7 @@ func TestGetDifferenceOfNestedArrays(t *testing.T) {
 		},
 	}
 
-	additions := [][]string{
+	expectedAdditions := [][]string{
 		{
 			"b",
 			"d",
@@ -74,8 +74,8 @@ func TestGetDifferenceOfNestedArrays(t *testing.T) {
 				old,
 				new,
 			},
-			deletions,
-			additions,
+			expectedDeletions,
+			expectedAdditions,
 		},
 	}
 	for _, tt := range tests {
@@ -86,6 +86,104 @@ func TestGetDifferenceOfNestedArrays(t *testing.T) {
 			}
 			if !reflect.DeepEqual(gotAdditions, tt.wantAdditions) {
 				t.Errorf("GetDifferenceOfNestedArrays() gotAdditions = %v, want %v", gotAdditions, tt.wantAdditions)
+			}
+		})
+	}
+}
+
+func TestGetUniqueKeys(t *testing.T) {
+	in1 := [][]string{
+		{
+			"b",
+			"a",
+		},
+		{
+			"b",
+			"c",
+		},
+		{
+			"a",
+			"c",
+		},
+		{
+			"c",
+			"a",
+		},
+		{
+			"a",
+			"b",
+		},
+		{
+			"b",
+			"a",
+		},
+	}
+
+	in2 := [][]string{
+		{
+			"a",
+			"b",
+		},
+		{
+			"b",
+			"c",
+		},
+		{
+			"a",
+			"c",
+		},
+		{
+			"c",
+			"a",
+		},
+		{
+			"b",
+			"a",
+		},
+		{
+			"b",
+			"a",
+		},
+	}
+
+	expectedOut1 := []string{
+		"b",
+		"a",
+		"c",
+	}
+	expectedOut2 := []string{
+		"a",
+		"b",
+		"c",
+	}
+
+	type args struct {
+		in [][]string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			"GetUniqueKeys",
+			args{
+				in1,
+			},
+			expectedOut1,
+		},
+		{
+			"GetUniqueKeys (different order)",
+			args{
+				in2,
+			},
+			expectedOut2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetUniqueKeys(tt.args.in); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetUniqueKeys() = %v, want %v", got, tt.want)
 			}
 		})
 	}
