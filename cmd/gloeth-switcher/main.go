@@ -55,7 +55,7 @@ func main() {
 					}
 
 					if *verbose {
-						log.Printf("READ frame from edge: %v", inFrame)
+						log.Printf("READ frame from adapter: %v", inFrame)
 					}
 
 					_, sourceMAC, _, err := wpr.Unwrap(inFrame)
@@ -66,7 +66,7 @@ func main() {
 					}
 
 					if *verbose {
-						log.Printf("REGISTERING connection for edge with MAC %v: %v", sourceMAC, conn)
+						log.Printf("REGISTERING connection for adapter with MAC %v: %v", sourceMAC, conn)
 					}
 
 					switcher.Register(sourceMAC, conn)
@@ -95,7 +95,7 @@ func main() {
 		}
 
 		if *verbose {
-			log.Printf("WRITING frame to edge(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
+			log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
 		}
 
 		for _, conn := range conns {
