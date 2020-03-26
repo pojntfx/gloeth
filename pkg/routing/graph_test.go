@@ -165,7 +165,7 @@ func TestGetRawDataFromGraph(t *testing.T) {
 				t.Errorf("len(matches(GetRawDataFromGraph())) = %v, want %v", actualMatchLength, expectedMatchLength)
 			}
 
-			g := GetGraphFromRawData(got)
+			g := getGraph(got)
 
 			if _, err := g.ShortestPathWithHeuristic(tt.start, tt.end, func(key, otherKey string) int {
 				return 1
