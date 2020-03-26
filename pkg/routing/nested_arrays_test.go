@@ -6,7 +6,7 @@ import (
 )
 
 func TestGetDifferenceOfNestedArrays(t *testing.T) {
-	old := [][]string{
+	old := [][2]string{
 		{
 			"a",
 			"b",
@@ -21,7 +21,7 @@ func TestGetDifferenceOfNestedArrays(t *testing.T) {
 		},
 	}
 
-	new := [][]string{
+	new := [][2]string{
 		{
 			"a",
 			"b",
@@ -36,7 +36,7 @@ func TestGetDifferenceOfNestedArrays(t *testing.T) {
 		},
 	}
 
-	expectedDeletions := [][]string{
+	expectedDeletions := [][2]string{
 		{
 			"b",
 			"c",
@@ -47,7 +47,7 @@ func TestGetDifferenceOfNestedArrays(t *testing.T) {
 		},
 	}
 
-	expectedAdditions := [][]string{
+	expectedAdditions := [][2]string{
 		{
 			"b",
 			"d",
@@ -59,14 +59,14 @@ func TestGetDifferenceOfNestedArrays(t *testing.T) {
 	}
 
 	type args struct {
-		old [][]string
-		new [][]string
+		old [][2]string
+		new [][2]string
 	}
 	tests := []struct {
 		name          string
 		args          args
-		wantDeletions [][]string
-		wantAdditions [][]string
+		wantDeletions [][2]string
+		wantAdditions [][2]string
 	}{
 		{
 			"GetDifferenceOfNestedArrays",
@@ -92,7 +92,7 @@ func TestGetDifferenceOfNestedArrays(t *testing.T) {
 }
 
 func TestGetUniqueKeys(t *testing.T) {
-	in1 := [][]string{
+	in1 := [][2]string{
 		{
 			"b",
 			"a",
@@ -119,7 +119,7 @@ func TestGetUniqueKeys(t *testing.T) {
 		},
 	}
 
-	in2 := [][]string{
+	in2 := [][2]string{
 		{
 			"a",
 			"b",
@@ -146,19 +146,14 @@ func TestGetUniqueKeys(t *testing.T) {
 		},
 	}
 
-	expectedOut1 := []string{
+	expectedOut := []string{
 		"b",
 		"a",
-		"c",
-	}
-	expectedOut2 := []string{
-		"a",
-		"b",
 		"c",
 	}
 
 	type args struct {
-		in [][]string
+		in [][2]string
 	}
 	tests := []struct {
 		name string
@@ -168,22 +163,41 @@ func TestGetUniqueKeys(t *testing.T) {
 		{
 			"GetUniqueKeys",
 			args{
-				in1,
+				DeduplicateNestedArray(in1),
 			},
-			expectedOut1,
+			expectedOut,
 		},
 		{
 			"GetUniqueKeys (different order)",
 			args{
-				in2,
+				DeduplicateNestedArray(in2),
 			},
-			expectedOut2,
+			expectedOut,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := GetUniqueKeys(tt.args.in); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetUniqueKeys() = %v, want %v", got, tt.want)
+			got := GetUniqueKeys(tt.args.in)
+
+			actualLen := len(got)
+			expectedLen := len(tt.want)
+
+			actualMatchLength := 0
+			expectedMatchLength := len(tt.want)
+			for _, ael := range got {
+				for _, eel := range tt.want {
+					if ael == eel {
+						actualMatchLength = actualMatchLength + 1
+					}
+				}
+			}
+
+			if actualLen != expectedLen {
+				t.Errorf("len(GetUniqueKeys()) = %v, want %v", actualLen, expectedLen)
+			}
+
+			if actualMatchLength != expectedMatchLength {
+				t.Errorf("len(matches(GetUniqueKeys())) = %v, want %v", actualMatchLength, expectedMatchLength)
 			}
 		})
 	}

@@ -7,7 +7,7 @@ import (
 	"github.com/sauerbraten/graph/v2"
 )
 
-var graphData = [][]string{
+var graphData = [][2]string{
 	{
 		"n1",
 		"n4",
@@ -54,11 +54,11 @@ var graphData = [][]string{
 	},
 }
 
-func NewGraph(graphData [][]string) *graph.Graph {
+func NewGraph(graphData [][2]string) *graph.Graph {
 	g := graph.New()
 
-	nodes := GetUniqueKeys(graphData)
 	edges := DeduplicateNestedArray(graphData)
+	nodes := GetUniqueKeys(edges)
 
 	fmt.Println(len(graphData), len(nodes), len(edges))
 
@@ -73,7 +73,7 @@ func NewGraph(graphData [][]string) *graph.Graph {
 	return g
 }
 
-func DumpGraph(g *graph.Graph) [][]string {
+func DumpGraph(g *graph.Graph) [][2]string {
 	nodes := g.GetAll()
 
 	nodeMap := make(map[string]*graph.Node)
@@ -81,10 +81,10 @@ func DumpGraph(g *graph.Graph) [][]string {
 		nodeMap[node.Key()] = node
 	}
 
-	var nodesWithNeighborKeys [][]string
+	var nodesWithNeighborKeys [][2]string
 	for nodeKey, node := range nodeMap {
 		for neighbor := range node.GetNeighbors() {
-			nodesWithNeighborKeys = append(nodesWithNeighborKeys, []string{nodeKey, neighbor.Key()})
+			nodesWithNeighborKeys = append(nodesWithNeighborKeys, [2]string{nodeKey, neighbor.Key()})
 		}
 	}
 
@@ -187,29 +187,8 @@ func BenchmarkGraphDump(b *testing.B) {
 	}
 }
 
-func DeduplicateNestedArray(in [][]string) [][]string {
-	var out [][]string
-
-	for _, el := range in {
-		match := false
-		for _, nel := range out {
-			if (nel[0] == el[1] && nel[1] == el[0]) || (nel[0] == el[0] && nel[1] == el[1]) {
-				match = true
-
-				break
-			}
-		}
-
-		if !match {
-			out = append(out, el)
-		}
-	}
-
-	return out
-}
-
 func TestDeduplicateNestedArray(t *testing.T) {
-	ins := [][][]string{
+	ins := [][][2]string{
 		{
 			{
 				"b",
@@ -264,7 +243,7 @@ func TestDeduplicateNestedArray(t *testing.T) {
 		},
 	}
 
-	expectedOut := [][]string{
+	expectedOut := [][2]string{
 		{
 			"b", // Note the potentially reversed value; this should not matter
 			"a",
