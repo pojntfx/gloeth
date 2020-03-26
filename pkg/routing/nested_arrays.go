@@ -34,3 +34,19 @@ func GetDifferenceOfNestedArrays(old, new [][]string) (deletions [][]string, add
 
 	return deletions, additions
 }
+
+// GetUniqueKeys return the unique keys of a nested array
+func GetUniqueKeys(in [][]string) []string {
+	outMap := make(map[string]bool)
+	for _, key := range in {
+		outMap[key[0]] = true
+		outMap[key[1]] = true
+	}
+
+	var out []string
+	for key := range outMap {
+		out = append(out, key)
+	}
+
+	return out
+}
