@@ -1,0 +1,36 @@
+package routing
+
+// GetDifferenceOfNestedArrays returns the difference between two deduplicated arrays
+func GetDifferenceOfNestedArrays(old, new [][]string) (deletions [][]string, additions [][]string) {
+	for _, el := range old {
+		exists := false
+		for _, nel := range new {
+			if (nel[0] == el[1] && nel[1] == el[0]) || (nel[0] == el[0] && nel[1] == el[1]) {
+				exists = true
+
+				break
+			}
+		}
+
+		if !exists {
+			deletions = append(deletions, el)
+		}
+	}
+
+	for _, nel := range new {
+		exists := false
+		for _, el := range old {
+			if (el[0] == nel[1] && el[1] == nel[0]) || (el[0] == nel[0] && el[1] == nel[1]) {
+				exists = true
+
+				break
+			}
+		}
+
+		if !exists {
+			additions = append(additions, nel)
+		}
+	}
+
+	return deletions, additions
+}
