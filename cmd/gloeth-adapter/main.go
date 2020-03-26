@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	raddrFlag := flag.String("raddr", ":1234", "Supernode address")
+	raddrFlag := flag.String("raddr", ":1234", "Remote address")
 	key := flag.String("key", "my_preshared_key", "Preshared key")
 	name := flag.String("name", "tap0", "Device name")
 	verbose := flag.Bool("verbose", false, "Enable verbose mode")
@@ -39,7 +39,7 @@ func main() {
 	if err := conn.Open(); err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("successfully connected to supernode %v", raddr)
+	log.Printf("successfully connected to switcher %v", raddr)
 
 	enco := encoders.NewEthernet()
 	encr := encryptors.NewEthernet(*key)
@@ -56,18 +56,18 @@ func main() {
 
 		for {
 			if err := conn.Read(); err != nil {
-				log.Printf("could not read from supernode %v due to error %v, retrying now", raddr, err)
+				log.Printf("could not read from switcher %v due to error %v, retrying now", raddr, err)
 			}
 
 			if err := conn.Open(); err != nil {
-				log.Printf("could not reconnect from supernode %v due to error %v, retrying in %v", raddr, err, timeTillReconnect)
+				log.Printf("could not reconnect from switcher %v due to error %v, retrying in %v", raddr, err, timeTillReconnect)
 
 				time.Sleep(timeTillReconnect)
 
 				continue
 			}
 
-			log.Printf("successfully reconnected to supernode %v", raddr)
+			log.Printf("successfully reconnected to switcher %v", raddr)
 		}
 	}()
 
@@ -101,11 +101,11 @@ func main() {
 			}
 
 			if *verbose {
-				log.Printf("WRITING frame to supernode: %v", outFrame)
+				log.Printf("WRITING frame to switcher: %v", outFrame)
 			}
 
 			if err := conn.Write(outFrame); err != nil {
-				log.Printf("could not write frame to supernode: %v", err)
+				log.Printf("could not write frame to switcher: %v", err)
 
 				continue
 			}
@@ -116,7 +116,7 @@ func main() {
 		inFrame := <-connChan
 
 		if *verbose {
-			log.Printf("READ frame from supernode: %v", inFrame)
+			log.Printf("READ frame from switcher: %v", inFrame)
 		}
 
 		_, _, dewrpFrame, err := wpr.Unwrap(inFrame)

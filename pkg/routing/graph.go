@@ -10,17 +10,17 @@ import (
 func GetGraphFromRawData(in [][2]string) *graph.Graph {
 	g := graph.New()
 
-	edges := DeduplicateNestedArray(in)
-	nodes := GetUniqueKeys(edges)
+	adapters := DeduplicateNestedArray(in)
+	nodes := GetUniqueKeys(adapters)
 
-	fmt.Println(len(in), len(nodes), len(edges))
+	fmt.Println(len(in), len(nodes), len(adapters))
 
 	for _, node := range nodes {
 		g.Add(node)
 	}
 
-	for _, edge := range edges {
-		g.Connect(edge[0], edge[1], 1)
+	for _, adapter := range adapters {
+		g.Connect(adapter[0], adapter[1], 1)
 	}
 
 	return g
