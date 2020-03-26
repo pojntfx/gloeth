@@ -21,10 +21,6 @@ var graphData = [][]string{
 		"n6",
 	},
 	{
-		"n3",
-		"n6",
-	},
-	{
 		"n6",
 		"n5",
 	},
@@ -79,22 +75,20 @@ func NewGraph(graphData [][]string) *graph.Graph {
 
 func DumpGraph(g *graph.Graph) [][]string {
 	nodes := g.GetAll()
-	var els [][]string
 
+	nodeMap := make(map[string]*graph.Node)
 	for _, node := range nodes {
-		key := node.Key()
-		neighbors := node.GetNeighbors()
-		var neighborKeys []string
-		for neighbor := range neighbors {
-			neighborKeys = append(neighborKeys, neighbor.Key())
-		}
+		nodeMap[node.Key()] = node
+	}
 
-		for _, neighborKey := range neighborKeys {
-			els = append(els, []string{key, neighborKey})
+	var nodesWithNeighborKeys [][]string
+	for nodeKey, node := range nodeMap {
+		for neighbor := range node.GetNeighbors() {
+			nodesWithNeighborKeys = append(nodesWithNeighborKeys, []string{nodeKey, neighbor.Key()})
 		}
 	}
 
-	return els
+	return DeduplicateNestedArray(nodesWithNeighborKeys)
 }
 
 func TestGraph(t *testing.T) {
@@ -137,6 +131,30 @@ func TestDumpGraph(t *testing.T) {
 	t.Log(path2)
 }
 
+func BenchmarkGraphNew(b *testing.B) {
+	runs := 700
+
+	for i := 0; i < runs; i++ {
+		NewGraph(graphData)
+	}
+}
+
+func BenchmarkGraph(b *testing.B) {
+	runs := 700
+
+	g := NewGraph(graphData)
+
+	for i := 0; i < runs; i++ {
+		_, err := g.ShortestPathWithHeuristic("n10", "n1", func(key, otherKey string) int {
+			return 1
+		})
+
+		if err != nil {
+			b.Error(err)
+		}
+	}
+}
+
 func BenchmarkGraphDump(b *testing.B) {
 	runs := 700
 
@@ -166,30 +184,6 @@ func BenchmarkGraphDump(b *testing.B) {
 		}
 
 		b.Log(p1, p2)
-	}
-}
-
-func BenchmarkGraphNew(b *testing.B) {
-	runs := 700
-
-	for i := 0; i < runs; i++ {
-		NewGraph(graphData)
-	}
-}
-
-func BenchmarkGraph(b *testing.B) {
-	runs := 700
-
-	g := NewGraph(graphData)
-
-	for i := 0; i < runs; i++ {
-		_, err := g.ShortestPathWithHeuristic("n10", "n1", func(key, otherKey string) int {
-			return 1
-		})
-
-		if err != nil {
-			b.Error(err)
-		}
 	}
 }
 
