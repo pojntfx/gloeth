@@ -3,7 +3,7 @@ package encoders
 import (
 	"net"
 
-	"github.com/pojntfx/ethernet"
+	"github.com/mdlayher/ethernet"
 	"github.com/pojntfx/gloeth/pkg/encryptors"
 )
 
