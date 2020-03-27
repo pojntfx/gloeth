@@ -8,8 +8,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/mdlayher/ethernet"
 	"github.com/mdlayher/raw"
-	"github.com/pojntfx/ethernet"
 	"github.com/pojntfx/gloeth/pkg/encryptors"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
