@@ -93,7 +93,7 @@ func main() {
 				continue
 			}
 
-			outFrame, err := wpr.Wrap(destMAC, srcMAC, encrFrame)
+			outFrame, err := wpr.Wrap(destMAC, srcMAC, [wrappers.HopsCount]*net.HardwareAddr{}, encrFrame)
 			if err != nil {
 				log.Printf("could not wrap frame: %v", err)
 
@@ -119,7 +119,7 @@ func main() {
 			log.Printf("READ frame from switcher: %v", inFrame)
 		}
 
-		_, _, dewrpFrame, err := wpr.Unwrap(inFrame)
+		_, _, _, dewrpFrame, err := wpr.Unwrap(inFrame)
 		if err != nil {
 			log.Printf("could not unwrap frame: %v", err)
 
