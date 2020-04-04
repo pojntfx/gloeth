@@ -302,3 +302,46 @@ func TestEthernet_GetShiftedHops(t *testing.T) {
 		})
 	}
 }
+
+func TestEthernet_GetHopsEmpty(t *testing.T) {
+	expectedHops, err := getHops()
+	if err != nil {
+		t.Error(err)
+	}
+	expectedEmptyHops := [HopsCount]*net.HardwareAddr{}
+
+	type args struct {
+		hops [HopsCount]*net.HardwareAddr
+	}
+	tests := []struct {
+		name string
+		e    *Ethernet
+		args args
+		want bool
+	}{
+		{
+			"GetHopsEmpty",
+			NewEthernet(),
+			args{
+				expectedHops,
+			},
+			false,
+		},
+		{
+			"GetHopsEmpty (empty hops)",
+			NewEthernet(),
+			args{
+				expectedEmptyHops,
+			},
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &Ethernet{}
+			if got := e.GetHopsEmpty(tt.args.hops); got != tt.want {
+				t.Errorf("Ethernet.GetHopsEmpty() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
