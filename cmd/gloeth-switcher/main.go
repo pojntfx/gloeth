@@ -84,7 +84,7 @@ func main() {
 	for {
 		inFrame := <-readChan
 
-		destMAC, sourceMAC, hops, _, err := wpr.Unwrap(inFrame)
+		destMAC, sourceMAC, hops, frame, err := wpr.Unwrap(inFrame)
 		if err != nil {
 			log.Printf("could not unwrap frame: %v", err)
 
@@ -95,7 +95,36 @@ func main() {
 			log.Printf("READ hops for frame from %v to %v: %v", sourceMAC, destMAC, hops)
 		}
 
-		conns, err := switcher.GetConnectionsForMAC(destMAC, sourceMAC)
+		newHops := wpr.GetShiftedHops(hops)
+		if wpr.GetHopsEmpty(newHops) {
+			conns, err := switcher.GetConnectionsForMAC(destMAC, sourceMAC)
+			if err != nil {
+				log.Printf("could not get connections: %v", err)
+
+				continue
+			}
+
+			if *verbose {
+				log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
+			}
+
+			for _, conn := range conns {
+				if err := switcher.Write(conn, inFrame); err != nil {
+					log.Printf("could not write to connection: %v", err)
+				}
+			}
+
+			continue
+		}
+
+		newFrame, err := wpr.Wrap(destMAC, sourceMAC, newHops, frame)
+		if err != nil {
+			log.Printf("could not wrap frame: %v", err)
+
+			continue
+		}
+
+		conns, err := switcher.GetConnectionsForMAC(hops[len(hops)-1], sourceMAC)
 		if err != nil {
 			log.Printf("could not get connections: %v", err)
 
@@ -103,13 +132,15 @@ func main() {
 		}
 
 		if *verbose {
-			log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
+			log.Printf("WRITING frame to switcher(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
 		}
 
 		for _, conn := range conns {
-			if err := switcher.Write(conn, inFrame); err != nil {
+			if err := switcher.Write(conn, newFrame); err != nil {
 				log.Printf("could not write to connection: %v", err)
 			}
 		}
+
+		continue
 	}
 }
