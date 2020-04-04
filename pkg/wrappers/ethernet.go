@@ -115,3 +115,18 @@ func (e *Ethernet) GetShiftedHops(hops [HopsCount]*net.HardwareAddr) [HopsCount]
 
 	return outHops
 }
+
+// GetHopsEmpty returns true if there are no more hops
+func (e *Ethernet) GetHopsEmpty(hops [HopsCount]*net.HardwareAddr) bool {
+	isEmpty := true
+
+	for _, hop := range hops {
+		if hop != nil {
+			isEmpty = false
+
+			break
+		}
+	}
+
+	return isEmpty
+}
