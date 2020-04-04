@@ -102,3 +102,16 @@ func (e *Ethernet) Unwrap(frame [WrappedFrameSize]byte) (*net.HardwareAddr, *net
 
 	return &outDest, &outSrc, outHops, outFrame, nil
 }
+
+// GetShiftedHops returns the hops for the next switcher
+func (e *Ethernet) GetShiftedHops(hops [HopsCount]*net.HardwareAddr) [HopsCount]*net.HardwareAddr {
+	outHops := [HopsCount]*net.HardwareAddr{}
+
+	for i, hop := range hops {
+		if i != 0 {
+			outHops[i-1] = hop
+		}
+	}
+
+	return outHops
+}

@@ -253,3 +253,52 @@ func TestEthernet_Unwrap(t *testing.T) {
 		})
 	}
 }
+
+func TestEthernet_GetShiftedHops(t *testing.T) {
+	mac1, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+	mac2, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+	inHops := [HopsCount]*net.HardwareAddr{&mac1, &mac2}
+	inHopsEmpty := [HopsCount]*net.HardwareAddr{}
+	expectedHops := [HopsCount]*net.HardwareAddr{&mac2}
+
+	type args struct {
+		hops [HopsCount]*net.HardwareAddr
+	}
+	tests := []struct {
+		name string
+		e    *Ethernet
+		args args
+		want [HopsCount]*net.HardwareAddr
+	}{
+		{
+			"GetShiftedHops",
+			NewEthernet(),
+			args{
+				inHops,
+			},
+			expectedHops,
+		},
+		{
+			"GetShiftedHops (empty hops)",
+			NewEthernet(),
+			args{
+				inHopsEmpty,
+			},
+			inHopsEmpty,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &Ethernet{}
+			if got := e.GetShiftedHops(tt.args.hops); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Ethernet.GetShiftedHops() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
