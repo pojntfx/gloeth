@@ -58,11 +58,15 @@ func main() {
 						log.Printf("READ frame from adapter: %v", inFrame)
 					}
 
-					_, sourceMAC, _, err := wpr.Unwrap(inFrame)
+					destMAC, sourceMAC, hops, _, err := wpr.Unwrap(inFrame)
 					if err != nil {
 						log.Printf("could not unwrap frame: %v", err)
 
 						continue
+					}
+
+					if *verbose {
+						log.Printf("READ hops for frame from %v to %v: %v", sourceMAC, destMAC, hops)
 					}
 
 					if *verbose {
@@ -80,11 +84,15 @@ func main() {
 	for {
 		inFrame := <-readChan
 
-		destMAC, sourceMAC, _, err := wpr.Unwrap(inFrame)
+		destMAC, sourceMAC, hops, _, err := wpr.Unwrap(inFrame)
 		if err != nil {
 			log.Printf("could not unwrap frame: %v", err)
 
 			continue
+		}
+
+		if *verbose {
+			log.Printf("READ hops for frame from %v to %v: %v", sourceMAC, destMAC, hops)
 		}
 
 		conns, err := switcher.GetConnectionsForMAC(destMAC, sourceMAC)

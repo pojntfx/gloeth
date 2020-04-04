@@ -21,11 +21,26 @@ func getMACAddress() (net.HardwareAddr, error) {
 	return net.ParseMAC(rawDest)
 }
 
+func getHops() ([HopsCount]*net.HardwareAddr, error) {
+	outHops := [HopsCount]*net.HardwareAddr{}
+
+	for i := 0; i < HopsCount; i++ {
+		mac, err := getMACAddress()
+		if err != nil {
+			return [HopsCount]*net.HardwareAddr{}, err
+		}
+
+		outHops[i] = &mac
+	}
+
+	return outHops, nil
+}
+
 func getFrame() [EncryptedFrameSize]byte {
 	return [EncryptedFrameSize]byte{1}
 }
 
-func getWrappedFrame(dest, src net.HardwareAddr, frame [EncryptedFrameSize]byte) [WrappedFrameSize]byte {
+func getWrappedFrame(dest, src *net.HardwareAddr, hops [HopsCount]*net.HardwareAddr, frame [EncryptedFrameSize]byte) [WrappedFrameSize]byte {
 	outFrame := [WrappedFrameSize]byte{}
 
 	outDest := [HeaderDestSize]byte{}
@@ -34,9 +49,22 @@ func getWrappedFrame(dest, src net.HardwareAddr, frame [EncryptedFrameSize]byte)
 	outSrc := [HeaderSrcSize]byte{}
 	copy(outSrc[:], src.String())
 
+	outHops := [HopsSize]byte{}
+	for i, hop := range hops {
+		if hop == nil {
+			continue
+		}
+
+		outHop := [HopSize]byte{}
+		copy(outHop[:], hop.String())
+
+		copy(outHops[i*HopSize:(i+1)*HopSize], outHop[:])
+	}
+
 	outHeader := [HeaderSize]byte{}
 	copy(outHeader[:HeaderDestSize], outDest[:])
 	copy(outHeader[HeaderDestSize:HeaderDestSize+HeaderSrcSize], outSrc[:])
+	copy(outHeader[HeaderDestSize+HeaderSrcSize:HeaderDestSize+HeaderSrcSize+HopsSize], outHops[:])
 
 	copy(outFrame[:HeaderSize], outHeader[:])
 	copy(outFrame[HeaderSize:], frame[:])
@@ -73,11 +101,18 @@ func TestEthernet_Wrap(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	wrappedFrame := getWrappedFrame(expectedDest, expectedSrc, expectedFrame)
+	expectedHops, err := getHops()
+	if err != nil {
+		t.Error(err)
+	}
+	expectedEmptyHops := [HopsCount]*net.HardwareAddr{}
+	wrappedFrame := getWrappedFrame(&expectedDest, &expectedSrc, expectedHops, expectedFrame)
+	wrappedFrameWithEmptyHops := getWrappedFrame(&expectedDest, &expectedSrc, expectedEmptyHops, expectedFrame)
 
 	type args struct {
 		dest  *net.HardwareAddr
 		src   *net.HardwareAddr
+		hops  [HopsCount]*net.HardwareAddr
 		frame [EncryptedFrameSize]byte
 	}
 	tests := []struct {
@@ -93,16 +128,29 @@ func TestEthernet_Wrap(t *testing.T) {
 			args{
 				&expectedDest,
 				&expectedSrc,
+				expectedHops,
 				expectedFrame,
 			},
 			wrappedFrame,
+			false,
+		},
+		{
+			"Wrap (empty hops)",
+			NewEthernet(),
+			args{
+				&expectedDest,
+				&expectedSrc,
+				expectedEmptyHops,
+				expectedFrame,
+			},
+			wrappedFrameWithEmptyHops,
 			false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &Ethernet{}
-			got, err := e.Wrap(tt.args.dest, tt.args.src, tt.args.frame)
+			got, err := e.Wrap(tt.args.dest, tt.args.src, tt.args.hops, tt.args.frame)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Ethernet.Wrap() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -124,7 +172,13 @@ func TestEthernet_Unwrap(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	wrappedFrame := getWrappedFrame(expectedDest, expectedSrc, expectedFrame)
+	expectedHops, err := getHops()
+	if err != nil {
+		t.Error(err)
+	}
+	expectedEmptyHops := [HopsCount]*net.HardwareAddr{}
+	wrappedFrame := getWrappedFrame(&expectedDest, &expectedSrc, expectedHops, expectedFrame)
+	wrappedFrameWithEmptyHops := getWrappedFrame(&expectedDest, &expectedSrc, expectedEmptyHops, expectedFrame)
 
 	type args struct {
 		frame [WrappedFrameSize]byte
@@ -135,7 +189,8 @@ func TestEthernet_Unwrap(t *testing.T) {
 		args    args
 		want    *net.HardwareAddr
 		want1   *net.HardwareAddr
-		want2   [EncryptedFrameSize]byte
+		want2   [HopsCount]*net.HardwareAddr
+		want3   [EncryptedFrameSize]byte
 		wantErr bool
 	}{
 		{
@@ -146,6 +201,19 @@ func TestEthernet_Unwrap(t *testing.T) {
 			},
 			&expectedDest,
 			&expectedSrc,
+			expectedHops,
+			expectedFrame,
+			false,
+		},
+		{
+			"Unwrap (empty hops)",
+			NewEthernet(),
+			args{
+				wrappedFrameWithEmptyHops,
+			},
+			&expectedDest,
+			&expectedSrc,
+			expectedEmptyHops,
 			expectedFrame,
 			false,
 		},
@@ -157,6 +225,7 @@ func TestEthernet_Unwrap(t *testing.T) {
 			},
 			nil,
 			nil,
+			[HopsCount]*net.HardwareAddr{},
 			[EncryptedFrameSize]byte{},
 			true,
 		},
@@ -164,7 +233,7 @@ func TestEthernet_Unwrap(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &Ethernet{}
-			got, got1, got2, err := e.Unwrap(tt.args.frame)
+			got, got1, got2, got3, err := e.Unwrap(tt.args.frame)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Ethernet.Unwrap() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -177,6 +246,9 @@ func TestEthernet_Unwrap(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got2, tt.want2) {
 				t.Errorf("Ethernet.Unwrap() got2 = %v, want %v", got2, tt.want2)
+			}
+			if !reflect.DeepEqual(got3, tt.want3) {
+				t.Errorf("Ethernet.Unwrap() got3 = %v, want %v", got3, tt.want3)
 			}
 		})
 	}
