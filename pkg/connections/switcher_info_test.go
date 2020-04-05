@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	gm "github.com/cseeger-epages/mac-gen-go"
+	"github.com/pojntfx/gloeth/pkg/switchers"
 )
 
 func getMACAddress() (net.HardwareAddr, error) {
@@ -112,11 +113,10 @@ func TestSwitcherInfo_Read(t *testing.T) {
 						t.Error(err)
 					}
 
-					if _, err := conn.Write([]byte(tt.macToWrite.String())); err != nil {
-						t.Error(err)
-					}
+					outMAC := [switchers.SwitcherInfoSize]byte{}
+					copy(outMAC[:], tt.macToWrite.String())
 
-					if err := conn.Close(); err != nil {
+					if _, err := conn.Write(outMAC[:]); err != nil {
 						t.Error(err)
 					}
 				}

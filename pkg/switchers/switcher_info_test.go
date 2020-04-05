@@ -1,12 +1,21 @@
 package switchers
 
 import (
-	"io/ioutil"
 	"net"
 	"reflect"
 	"testing"
 	"time"
 )
+
+func readSwitcherInfo(conn *net.TCPConn) (net.HardwareAddr, error) {
+	rawMAC := [SwitcherInfoSize]byte{}
+
+	if _, err := conn.Read(rawMAC[:]); err != nil {
+		return nil, err
+	}
+
+	return net.ParseMAC(string(rawMAC[:]))
+}
 
 func TestNewSwitcherInfo(t *testing.T) {
 	expectedLaddr, _, err := getListener()
@@ -240,12 +249,7 @@ func TestSwitcherInfo_Read(t *testing.T) {
 			}()
 
 			for i := 0; i < int(tt.amountOfRequests); i++ {
-				outMACRaw, err := ioutil.ReadAll(conn)
-				if err != nil {
-					t.Errorf("read(SwitcherInfo.Read()) error = %v", err)
-				}
-
-				got, err := net.ParseMAC(string(outMACRaw))
+				got, err := readSwitcherInfo(conn)
 				if err != nil {
 					t.Errorf("parseMAC(read((SwitcherInfo.Read())) error = %v", err)
 				}
@@ -254,6 +258,12 @@ func TestSwitcherInfo_Read(t *testing.T) {
 					t.Errorf("SwitcherInfo.Read() = %v, want %v", got, tt.want)
 				}
 
+				if err := conn.Close(); err != nil {
+					t.Error(err)
+				}
+
+				// The server does not close the connection; it could send a new MAC address in the future.
+				// This is not necessary in the test, so close it.
 				conn, err = getConn(laddr)
 				if err != nil {
 					t.Error(err)

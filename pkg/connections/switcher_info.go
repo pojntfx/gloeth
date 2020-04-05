@@ -1,8 +1,9 @@
 package connections
 
 import (
-	"io/ioutil"
 	"net"
+
+	"github.com/pojntfx/gloeth/pkg/switchers"
 )
 
 // SwitcherInfo is a connection to a switcher info
@@ -24,12 +25,13 @@ func (t *SwitcherInfo) Read() error {
 			return err
 		}
 
-		macRaw, err := ioutil.ReadAll(conn)
-		if err != nil {
+		macRaw := [switchers.SwitcherInfoSize]byte{}
+
+		if _, err := conn.Read(macRaw[:]); err != nil {
 			return err
 		}
 
-		mac, err := net.ParseMAC(string(macRaw))
+		mac, err := net.ParseMAC(string(macRaw[:]))
 		if err != nil {
 			return err
 		}
