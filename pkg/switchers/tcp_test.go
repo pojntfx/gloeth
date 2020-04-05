@@ -8,6 +8,7 @@ import (
 	"time"
 
 	gm "github.com/cseeger-epages/mac-gen-go"
+	cmap "github.com/orcaman/concurrent-map"
 	"github.com/pojntfx/gloeth/pkg/wrappers"
 )
 
@@ -66,6 +67,16 @@ func readFrame(conn *net.TCPConn) ([wrappers.WrappedFrameSize]byte, error) {
 	return frame, nil
 }
 
+func getConns(conns map[string]*net.TCPConn) cmap.ConcurrentMap {
+	iconns := cmap.New()
+
+	for mac, conn := range conns {
+		iconns.Set(mac, conn)
+	}
+
+	return iconns
+}
+
 func TestNewTCP(t *testing.T) {
 	expectedReadChan := make(chan [wrappers.WrappedFrameSize]byte)
 	expectedConnChan := make(chan *net.TCPConn)
@@ -73,7 +84,8 @@ func TestNewTCP(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expectedConns := make(map[string]*net.TCPConn)
+	expectedConns := map[string]*net.TCPConn{}
+	iexpectedConns := getConns(expectedConns)
 
 	type args struct {
 		readChan   chan [wrappers.WrappedFrameSize]byte
@@ -99,7 +111,7 @@ func TestNewTCP(t *testing.T) {
 				expectedConnChan,
 				expectedLaddr,
 				nil,
-				expectedConns,
+				iexpectedConns,
 			},
 		},
 	}
@@ -128,7 +140,7 @@ func TestTCP_Open(t *testing.T) {
 		connChan   chan *net.TCPConn
 		listenAddr *net.TCPAddr
 		listener   *net.TCPListener
-		conns      map[string]*net.TCPConn
+		conns      cmap.ConcurrentMap
 	}
 	tests := []struct {
 		name    string
@@ -197,7 +209,7 @@ func TestTCP_Close(t *testing.T) {
 		connChan chan *net.TCPConn
 		laddr    *net.TCPAddr
 		listener *net.TCPListener
-		conns    map[string]*net.TCPConn
+		conns    cmap.ConcurrentMap
 	}
 	tests := []struct {
 		name    string
@@ -250,7 +262,7 @@ func TestTCP_Read(t *testing.T) {
 		connChan chan *net.TCPConn
 		laddr    *net.TCPAddr
 		listener *net.TCPListener
-		conns    map[string]*net.TCPConn
+		conns    cmap.ConcurrentMap
 	}
 	tests := []struct {
 		name               string
@@ -326,7 +338,7 @@ func TestTCP_HandleFrame(t *testing.T) {
 		connChan chan *net.TCPConn
 		laddr    *net.TCPAddr
 		listener *net.TCPListener
-		conns    map[string]*net.TCPConn
+		conns    cmap.ConcurrentMap
 	}
 	type args struct {
 		frame [wrappers.WrappedFrameSize]byte
@@ -402,7 +414,7 @@ func TestTCP_Register(t *testing.T) {
 		connChan chan *net.TCPConn
 		laddr    *net.TCPAddr
 		listener *net.TCPListener
-		conns    map[string]*net.TCPConn
+		conns    cmap.ConcurrentMap
 	}
 	type args struct {
 		mac  *net.HardwareAddr
@@ -421,7 +433,7 @@ func TestTCP_Register(t *testing.T) {
 				connChan,
 				nil,
 				nil,
-				make(map[string]*net.TCPConn),
+				getConns(map[string]*net.TCPConn{}),
 			},
 			args{
 				&mac,
@@ -442,9 +454,12 @@ func TestTCP_Register(t *testing.T) {
 
 			s.Register(tt.args.mac, tt.args.conn)
 
-			got := s.conns[tt.args.mac.String()]
+			got, ok := s.conns.Get(tt.args.mac.String())
+			if !ok {
+				t.Errorf("TCP.Register() ok = %v, want %v", ok, true)
+			}
 
-			if got != tt.want {
+			if got.(*net.TCPConn) != tt.want {
 				t.Errorf("TCP.Register() = %v, want %v", got, tt.want)
 			}
 		})
@@ -484,7 +499,7 @@ func TestTCP_GetConnectionsForMAC(t *testing.T) {
 		connChan chan *net.TCPConn
 		laddr    *net.TCPAddr
 		listener *net.TCPListener
-		conns    map[string]*net.TCPConn
+		conns    cmap.ConcurrentMap
 	}
 	type args struct {
 		destMAC *net.HardwareAddr
@@ -504,9 +519,9 @@ func TestTCP_GetConnectionsForMAC(t *testing.T) {
 				connChan,
 				nil,
 				nil,
-				map[string]*net.TCPConn{
+				getConns(map[string]*net.TCPConn{
 					mac1.String(): conn1,
-				},
+				}),
 			},
 			args{
 				&mac1,
@@ -522,10 +537,10 @@ func TestTCP_GetConnectionsForMAC(t *testing.T) {
 				connChan,
 				nil,
 				nil,
-				map[string]*net.TCPConn{
+				getConns(map[string]*net.TCPConn{
 					mac1.String(): conn1,
 					mac2.String(): conn2,
-				},
+				}),
 			},
 			args{
 				&broadcastMAC,
@@ -541,9 +556,9 @@ func TestTCP_GetConnectionsForMAC(t *testing.T) {
 				connChan,
 				nil,
 				nil,
-				map[string]*net.TCPConn{
+				getConns(map[string]*net.TCPConn{
 					mac1.String(): conn1,
-				},
+				}),
 			},
 			args{
 				&mac2,
@@ -592,7 +607,7 @@ func TestTCP_Write(t *testing.T) {
 		connChan chan *net.TCPConn
 		laddr    *net.TCPAddr
 		listener *net.TCPListener
-		conns    map[string]*net.TCPConn
+		conns    cmap.ConcurrentMap
 	}
 	type args struct {
 		conn  *net.TCPConn
