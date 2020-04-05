@@ -17,7 +17,7 @@ func main() {
 	raddrFlag := flag.String("raddr", ":1234", "Remote address")
 	key := flag.String("key", "my_preshared_key", "Preshared key")
 	name := flag.String("name", "tap0", "Device name")
-	verbose := flag.Bool("verbose", false, "Enable verbose mode")
+	verbose := flag.Int("verbose", 0, "Enable verbose mode (1 = excluding frames, 2 = including frames)")
 	flag.Parse()
 
 	raddr, err := net.ResolveTCPAddr("tcp", *raddrFlag)
@@ -83,7 +83,7 @@ func main() {
 		for {
 			inFrame := <-devChan
 
-			if *verbose {
+			if *verbose > 1 {
 				log.Printf("READ frame from TAP device: %v", inFrame)
 			}
 
@@ -108,7 +108,7 @@ func main() {
 				continue
 			}
 
-			if *verbose {
+			if *verbose > 1 {
 				log.Printf("WRITING frame to switcher: %v", outFrame)
 			}
 
@@ -123,7 +123,7 @@ func main() {
 	for {
 		inFrame := <-connChan
 
-		if *verbose {
+		if *verbose > 1 {
 			log.Printf("READ frame from switcher: %v", inFrame)
 		}
 
@@ -141,7 +141,7 @@ func main() {
 			continue
 		}
 
-		if *verbose {
+		if *verbose > 1 {
 			log.Printf("WRITING frame to TAP device: %v", decrFrame)
 		}
 
