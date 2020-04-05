@@ -82,29 +82,48 @@ func main() {
 		for {
 			defer remoteSwitcherInfoConn.Close()
 			if err := remoteSwitcherInfoConn.Open(); err != nil {
-				log.Printf("could not connect to remote switcher %v due to error %v, retrying in %v", riaddr, err, timeTillReconnect)
+				log.Printf("could not connect to remote switcher info %v due to error %v, retrying in %v", riaddr, err, timeTillReconnect)
 
 				time.Sleep(timeTillReconnect)
 
 				continue
 			}
 
-			log.Printf("successfully connected to remote switcher %v", raddr)
+			log.Printf("successfully connected to remote switcher info %v", raddr)
 
 			if err := remoteSwitcherInfoConn.Read(); err != nil {
-				log.Printf("could not read from remote switcher %v due to error %v, retrying now", riaddr, err)
+				log.Printf("could not read from remote switcher info %v due to error %v, retrying now", riaddr, err)
 			}
 
 			defer remoteSwitcherInfoConn.Close()
 			if err := remoteSwitcherInfoConn.Open(); err != nil {
-				log.Printf("could not reconnect to remote switcher %v due to error %v, retrying in %v", riaddr, err, timeTillReconnect)
+				log.Printf("could not reconnect to remote switcher info %v due to error %v, retrying in %v", riaddr, err, timeTillReconnect)
 
 				time.Sleep(timeTillReconnect)
 
 				continue
 			}
 
-			log.Printf("successfully reconnected to remote switcher %v", raddr)
+			log.Printf("successfully reconnected to remote switcher info %v", raddr)
+		}
+	}()
+
+	go func() {
+		for {
+			mac := <-remoteSwitcherInfoChan
+
+			conn, err := connections.GetConn(raddr)
+			if err != nil {
+				log.Printf("could not connect to remote switcher %v with MAC address %v: %v", raddr, mac, err)
+			}
+
+			if *verbose {
+				log.Printf("REGISTERING connection for switcher with MAC %v: %v", mac, conn)
+			}
+
+			switcher.Register(mac, conn)
+
+			log.Printf("successfully connected to remote switcher %v with MAC address %v", raddr, mac)
 		}
 	}()
 
