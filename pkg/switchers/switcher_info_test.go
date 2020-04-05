@@ -1,6 +1,7 @@
 package switchers
 
 import (
+	"io/ioutil"
 	"net"
 	"reflect"
 	"testing"
@@ -182,6 +183,81 @@ func TestSwitcherInfo_Close(t *testing.T) {
 			}
 			if err := s.Close(); (err != nil) != tt.wantErr {
 				t.Errorf("SwitcherInfo.Close() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestSwitcherInfo_Read(t *testing.T) {
+	laddr, listener, err := getListener()
+	if err != nil {
+		t.Error(err)
+	}
+	conn, err := getConn(laddr)
+	if err != nil {
+		t.Error(err)
+	}
+	expectedMAC, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+
+	type fields struct {
+		laddr    *net.TCPAddr
+		listener *net.TCPListener
+		mac      *net.HardwareAddr
+	}
+	tests := []struct {
+		name             string
+		fields           fields
+		amountOfRequests uint
+		want             *net.HardwareAddr
+		wantErr          bool
+	}{
+		{
+			"Read",
+			fields{
+				nil,
+				listener,
+				&expectedMAC,
+			},
+			5,
+			&expectedMAC,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &SwitcherInfo{
+				laddr:    tt.fields.laddr,
+				listener: tt.fields.listener,
+				mac:      tt.fields.mac,
+			}
+			go func() {
+				if err := s.Read(); (err != nil) != tt.wantErr {
+					t.Errorf("SwitcherInfo.Read() error = %v, wantErr %v", err, tt.wantErr)
+				}
+			}()
+
+			for i := 0; i < int(tt.amountOfRequests); i++ {
+				outMACRaw, err := ioutil.ReadAll(conn)
+				if err != nil {
+					t.Errorf("read(SwitcherInfo.Read()) error = %v", err)
+				}
+
+				got, err := net.ParseMAC(string(outMACRaw))
+				if err != nil {
+					t.Errorf("parseMAC(read((SwitcherInfo.Read())) error = %v", err)
+				}
+
+				if !reflect.DeepEqual(&got, tt.want) {
+					t.Errorf("SwitcherInfo.Read() = %v, want %v", got, tt.want)
+				}
+
+				conn, err = getConn(laddr)
+				if err != nil {
+					t.Error(err)
+				}
 			}
 		})
 	}
