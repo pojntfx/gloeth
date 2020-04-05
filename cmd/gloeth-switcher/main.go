@@ -16,7 +16,7 @@ func main() {
 	liaddrFlag := flag.String("liaddr", ":1235", "Listen address for info endpoint")
 	raddrFlag := flag.String("raddr", ":1236", "Remote address")
 	riaddrFlag := flag.String("riaddr", ":1237", "Remote address for info endpoint")
-	verbose := flag.Bool("verbose", false, "Enable verbose mode")
+	verbose := flag.Int("verbose", 0, "Enable verbose mode (1 = excluding frames, 2 = including frames)")
 	flag.Parse()
 
 	laddr, err := net.ResolveTCPAddr("tcp", *laddrFlag)
@@ -117,7 +117,7 @@ func main() {
 				log.Printf("could not connect to remote switcher %v with MAC address %v: %v", raddr, mac, err)
 			}
 
-			if *verbose {
+			if *verbose > 0 {
 				log.Printf("REGISTERING connection for switcher with MAC %v: %v", mac, conn)
 			}
 
@@ -142,7 +142,7 @@ func main() {
 						break
 					}
 
-					if *verbose {
+					if *verbose > 1 {
 						log.Printf("READ frame from adapter: %v", inFrame)
 					}
 
@@ -153,11 +153,11 @@ func main() {
 						continue
 					}
 
-					if *verbose {
+					if *verbose > 0 {
 						log.Printf("READ hops for frame from %v to %v: %v", sourceMAC, destMAC, hops)
 					}
 
-					if *verbose {
+					if *verbose > 0 {
 						log.Printf("REGISTERING connection for adapter with MAC %v: %v", sourceMAC, conn)
 					}
 
@@ -179,7 +179,7 @@ func main() {
 			continue
 		}
 
-		if *verbose {
+		if *verbose > 0 {
 			log.Printf("READ hops for frame from %v to %v: %v", sourceMAC, destMAC, hops)
 		}
 
@@ -192,8 +192,12 @@ func main() {
 				continue
 			}
 
-			if *verbose {
-				log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
+			if *verbose > 0 {
+				if *verbose > 1 {
+					log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
+				} else {
+					log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v", destMAC, conns)
+				}
 			}
 
 			for _, conn := range conns {
@@ -219,8 +223,12 @@ func main() {
 			continue
 		}
 
-		if *verbose {
-			log.Printf("WRITING frame to switcher(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
+		if *verbose > 0 {
+			if *verbose > 1 {
+				log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
+			} else {
+				log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v", destMAC, conns)
+			}
 		}
 
 		for _, conn := range conns {
