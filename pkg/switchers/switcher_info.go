@@ -7,6 +7,10 @@ import (
 	gm "github.com/cseeger-epages/mac-gen-go"
 )
 
+const (
+	SwitcherInfoSize = 17 // Size of a switcher info
+)
+
 // SwitcherInfo provides information about a switcher
 type SwitcherInfo struct {
 	laddr    *net.TCPAddr
@@ -69,11 +73,10 @@ func (s *SwitcherInfo) Read() error {
 			return err
 		}
 
-		if _, err := conn.Write([]byte(s.mac.String())); err != nil {
-			return err
-		}
+		outMAC := [SwitcherInfoSize]byte{}
+		copy(outMAC[:], s.mac.String())
 
-		if err := conn.Close(); err != nil {
+		if _, err := conn.Write(outMAC[:]); err != nil {
 			return err
 		}
 	}
