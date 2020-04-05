@@ -466,7 +466,7 @@ func TestTCP_Register(t *testing.T) {
 	}
 }
 
-func TestTCP_GetConnectionsForMAC(t *testing.T) {
+func TestTCP_GetConnectionForMAC(t *testing.T) {
 	readChan := make(chan [wrappers.WrappedFrameSize]byte)
 	connChan := make(chan *net.TCPConn)
 	laddr, _, err := getListener()
@@ -489,10 +489,6 @@ func TestTCP_GetConnectionsForMAC(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	broadcastMAC, err := getBroadcastMACAddress()
-	if err != nil {
-		t.Error(err)
-	}
 
 	type fields struct {
 		readChan chan [wrappers.WrappedFrameSize]byte
@@ -503,35 +499,16 @@ func TestTCP_GetConnectionsForMAC(t *testing.T) {
 	}
 	type args struct {
 		destMAC *net.HardwareAddr
-		srcMAC  *net.HardwareAddr
 	}
 	tests := []struct {
 		name    string
 		fields  fields
 		args    args
-		want    []*net.TCPConn
+		want    *net.TCPConn
 		wantErr bool
 	}{
 		{
-			"GetConnectionsForMAC",
-			fields{
-				readChan,
-				connChan,
-				nil,
-				nil,
-				getConns(map[string]*net.TCPConn{
-					mac1.String(): conn1,
-				}),
-			},
-			args{
-				&mac1,
-				&mac2,
-			},
-			[]*net.TCPConn{conn1},
-			false,
-		},
-		{
-			"GetConnectionsForMAC (broadcast)",
+			"GetConnectionForMAC",
 			fields{
 				readChan,
 				connChan,
@@ -543,14 +520,13 @@ func TestTCP_GetConnectionsForMAC(t *testing.T) {
 				}),
 			},
 			args{
-				&broadcastMAC,
 				&mac1,
 			},
-			[]*net.TCPConn{conn2},
+			conn1,
 			false,
 		},
 		{
-			"GetConnectionsForMAC (unknown connection)",
+			"GetConnectionForMAC (unknown connection)",
 			fields{
 				readChan,
 				connChan,
@@ -562,9 +538,8 @@ func TestTCP_GetConnectionsForMAC(t *testing.T) {
 			},
 			args{
 				&mac2,
-				&mac1,
 			},
-			[]*net.TCPConn{},
+			nil,
 			true,
 		},
 	}
@@ -577,7 +552,7 @@ func TestTCP_GetConnectionsForMAC(t *testing.T) {
 				listener: tt.fields.listener,
 				conns:    tt.fields.conns,
 			}
-			got, err := s.GetConnectionsForMAC(tt.args.destMAC, tt.args.srcMAC)
+			got, err := s.GetConnectionsForMAC(tt.args.destMAC)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("TCP.GetConnectionsForMAC() error = %v, wantErr %v", err, tt.wantErr)
 				return
