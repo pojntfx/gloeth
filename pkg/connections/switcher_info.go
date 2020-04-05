@@ -16,19 +16,10 @@ func NewSwitcherInfo(readChan chan *net.HardwareAddr, raddr *net.TCPAddr) *Switc
 	return &SwitcherInfo{readChan, raddr}
 }
 
-func (t *SwitcherInfo) getConn() (*net.TCPConn, error) {
-	conn, err := net.DialTCP("tcp", nil, t.raddr)
-	if err != nil {
-		return nil, err
-	}
-
-	return conn, nil
-}
-
 // Read reads from the switcher info
 func (t *SwitcherInfo) Read() error {
 	for {
-		conn, err := t.getConn()
+		conn, err := GetConn(t.raddr)
 		if err != nil {
 			return err
 		}
