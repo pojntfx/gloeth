@@ -68,29 +68,15 @@ func (t *TCP) Register(mac *net.HardwareAddr, conn *net.TCPConn) {
 }
 
 // GetConnectionsForMAC gets the connections for a given MAC address
-func (t *TCP) GetConnectionsForMAC(destMAC, srcMAC *net.HardwareAddr) ([]*net.TCPConn, error) {
+func (t *TCP) GetConnectionsForMAC(destMAC *net.HardwareAddr) (*net.TCPConn, error) {
 	dest := destMAC.String()
-	// src := srcMAC.String()
-
-	if dest == "ff:ff:ff:ff:ff:ff" {
-		connsToReturn := []*net.TCPConn{}
-
-		// Ignore broadcasts for now as they lead to a loopback with inter-switch networking
-		// for connt := range t.conns.Iter() {
-		// 	if connt.Key != src {
-		// 		connsToReturn = append(connsToReturn, connt.Val.(*net.TCPConn))
-		// 	}
-		// }
-
-		return connsToReturn, nil
-	}
 
 	conn, ok := t.conns.Get(dest)
 	if !ok {
-		return []*net.TCPConn{}, fmt.Errorf("no connection found for dest %v", dest)
+		return nil, fmt.Errorf("no connection found for dest %v", dest)
 	}
 
-	return []*net.TCPConn{conn.(*net.TCPConn)}, nil
+	return conn.(*net.TCPConn), nil
 }
 
 // Write writes to a connection on the TCP switcher

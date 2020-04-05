@@ -185,7 +185,7 @@ func main() {
 
 		newHops := wpr.GetShiftedHops(hops)
 		if wpr.GetHopsEmpty(newHops) {
-			conns, err := switcher.GetConnectionsForMAC(destMAC, sourceMAC)
+			conn, err := switcher.GetConnectionsForMAC(destMAC)
 			if err != nil {
 				log.Printf("could not get connections: %v", err)
 
@@ -194,16 +194,14 @@ func main() {
 
 			if *verbose > 0 {
 				if *verbose > 1 {
-					log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
+					log.Printf("WRITING frame to adapter(s) with MAC %v via connection %v: %v", destMAC, conn, inFrame)
 				} else {
-					log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v", destMAC, conns)
+					log.Printf("WRITING frame to adapter(s) with MAC %v via connection %v", destMAC, conn)
 				}
 			}
 
-			for _, conn := range conns {
-				if err := switcher.Write(conn, inFrame); err != nil {
-					log.Printf("could not write to connection: %v", err)
-				}
+			if err := switcher.Write(conn, inFrame); err != nil {
+				log.Printf("could not write to connection: %v", err)
 			}
 
 			continue
@@ -216,7 +214,7 @@ func main() {
 			continue
 		}
 
-		conns, err := switcher.GetConnectionsForMAC(hops[len(hops)-1], sourceMAC)
+		conn, err := switcher.GetConnectionsForMAC(hops[len(hops)-1])
 		if err != nil {
 			log.Printf("could not get connections: %v", err)
 
@@ -225,16 +223,14 @@ func main() {
 
 		if *verbose > 0 {
 			if *verbose > 1 {
-				log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v: %v", destMAC, conns, inFrame)
+				log.Printf("WRITING frame to adapter(s) with MAC %v via connection %v: %v", destMAC, conn, inFrame)
 			} else {
-				log.Printf("WRITING frame to adapter(s) with MAC %v via connections %v", destMAC, conns)
+				log.Printf("WRITING frame to adapter(s) with MAC %v via connection %v", destMAC, conn)
 			}
 		}
 
-		for _, conn := range conns {
-			if err := switcher.Write(conn, newFrame); err != nil {
-				log.Printf("could not write to connection: %v", err)
-			}
+		if err := switcher.Write(conn, newFrame); err != nil {
+			log.Printf("could not write to connection: %v", err)
 		}
 
 		continue
