@@ -46,8 +46,10 @@ func main() {
 	wpr := wrappers.NewEthernet()
 
 	go func() {
-		if err := dev.Read(); err != nil {
-			log.Fatal(err)
+		for {
+			if err := dev.Read(); err != nil {
+				log.Printf("could not read from dev: %v", err)
+			}
 		}
 	}()
 
