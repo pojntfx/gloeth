@@ -10,24 +10,37 @@ import (
 type SwitcherInfo struct {
 	readChan chan *net.HardwareAddr
 	raddr    *net.TCPAddr
+	conn     *net.TCPConn
 }
 
 // NewSwitcherInfo creates a new switcher info connection
 func NewSwitcherInfo(readChan chan *net.HardwareAddr, raddr *net.TCPAddr) *SwitcherInfo {
-	return &SwitcherInfo{readChan, raddr}
+	return &SwitcherInfo{readChan, raddr, nil}
+}
+
+// Open opens the switcher info
+func (t *SwitcherInfo) Open() error {
+	conn, err := GetConn(t.raddr)
+	if err != nil {
+		return err
+	}
+
+	t.conn = conn
+
+	return nil
+}
+
+// Close closes the switcher info
+func (t *SwitcherInfo) Close() error {
+	return t.conn.Close()
 }
 
 // Read reads from the switcher info
 func (t *SwitcherInfo) Read() error {
 	for {
-		conn, err := GetConn(t.raddr)
-		if err != nil {
-			return err
-		}
-
 		macRaw := [switchers.SwitcherInfoSize]byte{}
 
-		if _, err := conn.Read(macRaw[:]); err != nil {
+		if _, err := t.conn.Read(macRaw[:]); err != nil {
 			return err
 		}
 
