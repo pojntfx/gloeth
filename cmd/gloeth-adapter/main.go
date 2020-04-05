@@ -35,12 +35,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	defer conn.Close()
-	if err := conn.Open(); err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("successfully connected to switcher %v", raddr)
-
 	enco := encoders.NewEthernet()
 	encr := encryptors.NewEthernet(*key)
 	wpr := wrappers.NewEthernet()
@@ -57,10 +51,22 @@ func main() {
 		timeTillReconnect := time.Millisecond * 250
 
 		for {
+			defer conn.Close()
+			if err := conn.Open(); err != nil {
+				log.Printf("could not connect to switcher %v due to error %v, retrying in %v", raddr, err, timeTillReconnect)
+
+				time.Sleep(timeTillReconnect)
+
+				continue
+			}
+
+			log.Printf("successfully connected to switcher %v", raddr)
+
 			if err := conn.Read(); err != nil {
 				log.Printf("could not read from switcher %v due to error %v, retrying now", raddr, err)
 			}
 
+			defer conn.Close()
 			if err := conn.Open(); err != nil {
 				log.Printf("could not reconnect to switcher %v due to error %v, retrying in %v", raddr, err, timeTillReconnect)
 

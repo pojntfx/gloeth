@@ -4,7 +4,9 @@ import (
 	"flag"
 	"log"
 	"net"
+	"time"
 
+	"github.com/pojntfx/gloeth/pkg/connections"
 	"github.com/pojntfx/gloeth/pkg/switchers"
 	"github.com/pojntfx/gloeth/pkg/wrappers"
 )
@@ -36,10 +38,12 @@ func main() {
 
 	readChan := make(chan [wrappers.WrappedFrameSize]byte)
 	connChan := make(chan *net.TCPConn)
+	remoteSwitcherInfoChan := make(chan *net.HardwareAddr)
 
 	initConns := make(map[string]*net.TCPConn)
 	switcher := switchers.NewTCP(readChan, connChan, laddr, initConns)
 	switcherInfo := switchers.NewSwitcherInfo(liaddr)
+	remoteSwitcherInfoConn := connections.NewSwitcherInfo(remoteSwitcherInfoChan, riaddr)
 
 	defer switcher.Close()
 	if err := switcher.Open(); err != nil {
@@ -69,6 +73,38 @@ func main() {
 	go func() {
 		if err := switcherInfo.Read(); err != nil {
 			log.Printf("could not read from switcher info: %v", err)
+		}
+	}()
+
+	go func() {
+		timeTillReconnect := time.Millisecond * 250
+
+		for {
+			defer remoteSwitcherInfoConn.Close()
+			if err := remoteSwitcherInfoConn.Open(); err != nil {
+				log.Printf("could not connect to remote switcher %v due to error %v, retrying in %v", riaddr, err, timeTillReconnect)
+
+				time.Sleep(timeTillReconnect)
+
+				continue
+			}
+
+			log.Printf("successfully connected to remote switcher %v", raddr)
+
+			if err := remoteSwitcherInfoConn.Read(); err != nil {
+				log.Printf("could not read from remote switcher %v due to error %v, retrying now", riaddr, err)
+			}
+
+			defer remoteSwitcherInfoConn.Close()
+			if err := remoteSwitcherInfoConn.Open(); err != nil {
+				log.Printf("could not reconnect to remote switcher %v due to error %v, retrying in %v", riaddr, err, timeTillReconnect)
+
+				time.Sleep(timeTillReconnect)
+
+				continue
+			}
+
+			log.Printf("successfully reconnected to remote switcher %v", raddr)
 		}
 	}()
 
