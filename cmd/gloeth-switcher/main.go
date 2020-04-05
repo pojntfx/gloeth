@@ -11,10 +11,15 @@ import (
 
 func main() {
 	laddrFlag := flag.String("laddr", ":1234", "Listen address")
+	liaddrFlag := flag.String("liaddr", ":1235", "Listen address for info endpoint")
 	verbose := flag.Bool("verbose", false, "Enable verbose mode")
 	flag.Parse()
 
 	laddr, err := net.ResolveTCPAddr("tcp", *laddrFlag)
+	if err != nil {
+		log.Fatal(err)
+	}
+	liaddr, err := net.ResolveTCPAddr("tcp", *liaddrFlag)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,6 +29,7 @@ func main() {
 
 	initConns := make(map[string]*net.TCPConn)
 	switcher := switchers.NewTCP(readChan, connChan, laddr, initConns)
+	switcherInfo := switchers.NewSwitcherInfo(liaddr)
 
 	defer switcher.Close()
 	if err := switcher.Open(); err != nil {
@@ -31,11 +37,30 @@ func main() {
 	}
 	log.Printf("listening on %v", laddr)
 
+	defer switcherInfo.Close()
+	if err := switcherInfo.RequestMACAddress(); err != nil {
+		log.Fatal(err)
+	}
+	if err := switcherInfo.Open(); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("info endpoint listening on %v", liaddr)
+
 	wpr := wrappers.NewEthernet()
 
 	go func() {
-		if err := switcher.Read(); err != nil {
-			log.Fatal(err)
+		for {
+			if err := switcher.Read(); err != nil {
+				log.Printf("could not read from switcher: %v", err)
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			if err := switcherInfo.Read(); err != nil {
+				log.Printf("could not read from switcher info: %v", err)
+			}
 		}
 	}()
 
