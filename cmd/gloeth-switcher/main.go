@@ -12,6 +12,8 @@ import (
 func main() {
 	laddrFlag := flag.String("laddr", ":1234", "Listen address")
 	liaddrFlag := flag.String("liaddr", ":1235", "Listen address for info endpoint")
+	raddrFlag := flag.String("raddr", ":1236", "Remote address")
+	riaddrFlag := flag.String("riaddr", ":1237", "Remote address for info endpoint")
 	verbose := flag.Bool("verbose", false, "Enable verbose mode")
 	flag.Parse()
 
@@ -20,6 +22,14 @@ func main() {
 		log.Fatal(err)
 	}
 	liaddr, err := net.ResolveTCPAddr("tcp", *liaddrFlag)
+	if err != nil {
+		log.Fatal(err)
+	}
+	raddr, err := net.ResolveTCPAddr("tcp", *raddrFlag)
+	if err != nil {
+		log.Fatal(err)
+	}
+	riaddr, err := net.ResolveTCPAddr("tcp", *riaddrFlag)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -57,10 +67,8 @@ func main() {
 	}()
 
 	go func() {
-		for {
-			if err := switcherInfo.Read(); err != nil {
-				log.Printf("could not read from switcher info: %v", err)
-			}
+		if err := switcherInfo.Read(); err != nil {
+			log.Printf("could not read from switcher info: %v", err)
 		}
 	}()
 

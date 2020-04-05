@@ -62,7 +62,7 @@ func main() {
 			}
 
 			if err := conn.Open(); err != nil {
-				log.Printf("could not reconnect from switcher %v due to error %v, retrying in %v", raddr, err, timeTillReconnect)
+				log.Printf("could not reconnect to switcher %v due to error %v, retrying in %v", raddr, err, timeTillReconnect)
 
 				time.Sleep(timeTillReconnect)
 
