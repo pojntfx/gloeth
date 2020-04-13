@@ -34,3 +34,30 @@ func (r *RoutingTable) Register(mac1, mac2 *net.HardwareAddr) error {
 
 	return nil
 }
+
+// GetHops returns the hops between a switcher and an adapter
+func (r *RoutingTable) GetHops(switcherMAC, adapterMAC *net.HardwareAddr) ([]*net.HardwareAddr, error) {
+	fullPath, err := r.graph.ShortestPathWithHeuristic(switcherMAC.String(), adapterMAC.String(), func(key, otherKey string) int {
+		return 1
+	})
+
+	if err != nil {
+		return []*net.HardwareAddr{}, err
+	}
+
+	hops := make([]*net.HardwareAddr, len(fullPath))
+	for i, rawHop := range fullPath {
+		hop, err := net.ParseMAC(rawHop)
+		if err != nil {
+			return []*net.HardwareAddr{}, err
+		}
+
+		hops[(len(fullPath)-1)-i] = &hop
+	}
+
+	if len(hops) <= 2 {
+		return []*net.HardwareAddr{}, nil
+	}
+
+	return hops[1 : len(fullPath)-1], nil
+}
