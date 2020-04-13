@@ -7,6 +7,7 @@ require (
 	github.com/buraksezer/consistent v0.0.0-20191006190839-693edf70fd72 // indirect
 	github.com/buraksezer/olric v0.2.0-rc.4
 	github.com/cseeger-epages/mac-gen-go v0.0.0-20190220141445-5f6742e2e734
+	github.com/go-redis/redis/v7 v7.2.0
 	github.com/google/btree v1.0.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.2.0 // indirect
 	github.com/hashicorp/go-msgpack v1.1.5 // indirect
