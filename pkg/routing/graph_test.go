@@ -175,3 +175,45 @@ func TestGetRawDataFromGraph(t *testing.T) {
 		})
 	}
 }
+
+func TestGetOutmostNodesFromGraph(t *testing.T) {
+	rawData := getRawGraphData()
+	in := GetGraphFromRawData(rawData)
+	expectedOut := []string{"n1", "n2", "n3", "n8", "n10"}
+
+	type args struct {
+		in *graph.Graph
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			"GetOutmostNodesFromGraph",
+			args{
+				in,
+			},
+			expectedOut,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetOutmostNodesFromGraph(tt.args.in)
+
+			actualMatchLength := 0
+			expectedMatchLength := len(tt.want)
+			for _, ael := range got {
+				for _, eel := range tt.want {
+					if ael == eel {
+						actualMatchLength = actualMatchLength + 1
+					}
+				}
+			}
+
+			if actualMatchLength != expectedMatchLength {
+				t.Errorf("GetOutmostNodesFromGraph() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

@@ -44,3 +44,23 @@ func GetRawDataFromGraph(in *graph.Graph) [][2]string {
 
 	return DeduplicateNestedArray(nodesWithNeighborKeys)
 }
+
+// GetOutmostNodesFromGraph gets the outmost nodes of a graph
+func GetOutmostNodesFromGraph(in *graph.Graph) []string {
+	nodes := in.GetAll()
+
+	nodeMap := make(map[string]*graph.Node)
+	for _, node := range nodes {
+		nodeMap[node.Key()] = node
+	}
+
+	nodesWithOneNeighbor := []string{}
+	for nodeKey, node := range nodeMap {
+		neighbors := node.GetNeighbors()
+		if len(neighbors) == 1 {
+			nodesWithOneNeighbor = append(nodesWithOneNeighbor, nodeKey)
+		}
+	}
+
+	return nodesWithOneNeighbor
+}
