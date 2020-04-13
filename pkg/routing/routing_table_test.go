@@ -22,6 +22,44 @@ func getMACAddress() (net.HardwareAddr, error) {
 	return net.ParseMAC(rawDest)
 }
 
+func getGraphFromMACs(mac1, mac2 *net.HardwareAddr, between []*net.HardwareAddr, alt []*net.HardwareAddr) *graph.Graph {
+	rawGraph := [][2]string{}
+
+	if len(between) == 0 {
+		rawGraph = append(rawGraph, [2]string{mac1.String(), mac2.String()})
+	}
+
+	if len(between) > 1 {
+		for i, hop := range between {
+			if i == 0 {
+				rawGraph = append(rawGraph, [2]string{mac1.String(), hop.String()})
+
+				continue
+			}
+
+			rawGraph = append(rawGraph, [2]string{between[i-1].String(), hop.String()})
+
+			if i == (len(between) - 1) {
+				rawGraph = append(rawGraph, [2]string{hop.String(), mac2.String()})
+			}
+		}
+	}
+
+	if len(alt) > 1 {
+		for i, hop := range alt {
+			if i == 0 {
+				rawGraph = append(rawGraph, [2]string{mac1.String(), hop.String()})
+
+				continue
+			}
+
+			rawGraph = append(rawGraph, [2]string{alt[i-1].String(), hop.String()})
+		}
+	}
+
+	return GetGraphFromRawData(rawGraph)
+}
+
 func TestNewRoutingTable(t *testing.T) {
 	tests := []struct {
 		name string
@@ -119,6 +157,113 @@ func TestRoutingTable_Register(t *testing.T) {
 
 			if actualMatchLength != expectedMatchLength {
 				t.Errorf("RoutingTable.Register() error = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRoutingTable_GetHops(t *testing.T) {
+	mac1, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+
+	mac2, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+
+	mac3, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+
+	mac4, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+
+	mac5, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+
+	mac6, err := getMACAddress()
+	if err != nil {
+		t.Error(err)
+	}
+
+	expectedHops1 := []*net.HardwareAddr{&mac3, &mac4}
+	inGraph1 := getGraphFromMACs(&mac1, &mac2, expectedHops1, []*net.HardwareAddr{&mac5, &mac6})
+
+	expectedHops2 := []*net.HardwareAddr{}
+	inGraph2 := getGraphFromMACs(&mac1, &mac2, expectedHops2, []*net.HardwareAddr{})
+
+	inGraph3 := getGraphFromMACs(&mac1, &mac2, expectedHops1, []*net.HardwareAddr{})
+
+	type fields struct {
+		graph *graph.Graph
+	}
+	type args struct {
+		switcherMAC *net.HardwareAddr
+		adapterMAC  *net.HardwareAddr
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []*net.HardwareAddr
+		wantErr bool
+	}{
+		{
+			"GetHops",
+			fields{
+				inGraph1,
+			},
+			args{
+				&mac1,
+				&mac2,
+			},
+			expectedHops1,
+			false,
+		},
+		{
+			"GetHops (direct connection)",
+			fields{
+				inGraph2,
+			},
+			args{
+				&mac1,
+				&mac2,
+			},
+			expectedHops2,
+			false,
+		},
+		{
+			"GetHops (no alt)",
+			fields{
+				inGraph3,
+			},
+			args{
+				&mac1,
+				&mac2,
+			},
+			expectedHops1,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RoutingTable{
+				graph: tt.fields.graph,
+			}
+			got, err := r.GetHops(tt.args.switcherMAC, tt.args.adapterMAC)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RoutingTable.GetHops() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RoutingTable.GetHops() = %v, want %v", got, tt.want)
 			}
 		})
 	}
