@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bsm/redislock"
 	"github.com/go-redis/redis/v7"
 )
 
@@ -100,6 +101,10 @@ func getRedisClient() *redis.Client {
 	})
 }
 
+func getRedislockClient(client *redis.Client) *redislock.Client {
+	return redislock.New(client)
+}
+
 func TestNewRedis(t *testing.T) {
 	raddr, err := net.ResolveTCPAddr("tcp", "localhost:6379")
 	if err != nil {
@@ -124,8 +129,14 @@ func TestNewRedis(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewRedis(tt.args.addr, tt.args.password); got.client == nil {
+			got := NewRedis(tt.args.addr, tt.args.password)
+
+			if got.client == nil {
 				t.Errorf("NewRedis() client = %v, want !nil", got.client)
+			}
+
+			if got.lockclient == nil {
+				t.Errorf("NewRedis() lockclient = %v, want !nil", got.lockclient)
 			}
 		})
 	}
@@ -133,11 +144,15 @@ func TestNewRedis(t *testing.T) {
 
 func TestRedis_Apply(t *testing.T) {
 	client := getRedisClient()
+	lockclient := getRedislockClient(client)
 	deletions := [][2]string{}
 	additions := getTestData()
+	deletions2 := additions
+	additions2 := deletions
 
 	type fields struct {
-		client *redis.Client
+		client     *redis.Client
+		lockclient *redislock.Client
 	}
 	type args struct {
 		deletions [][2]string
@@ -153,6 +168,7 @@ func TestRedis_Apply(t *testing.T) {
 			"Apply",
 			fields{
 				client,
+				lockclient,
 			},
 			args{
 				deletions,
@@ -164,10 +180,11 @@ func TestRedis_Apply(t *testing.T) {
 			"Apply (deletions only)",
 			fields{
 				client,
+				lockclient,
 			},
 			args{
-				deletions,
-				additions,
+				deletions2,
+				additions2,
 			},
 			false,
 		},
@@ -175,7 +192,8 @@ func TestRedis_Apply(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &Redis{
-				client: tt.fields.client,
+				client:     tt.fields.client,
+				lockclient: tt.fields.lockclient,
 			}
 
 			if len(tt.args.deletions) != 0 {
@@ -208,10 +226,12 @@ func TestRedis_Apply(t *testing.T) {
 
 func TestRedis_GetAll(t *testing.T) {
 	client := getRedisClient()
+	lockclient := getRedislockClient(client)
 	testData := getTestData()
 
 	type fields struct {
-		client *redis.Client
+		client     *redis.Client
+		lockclient *redislock.Client
 	}
 	tests := []struct {
 		name      string
@@ -224,6 +244,7 @@ func TestRedis_GetAll(t *testing.T) {
 			"GetAll",
 			fields{
 				client,
+				lockclient,
 			},
 			testData,
 			testData,
@@ -232,9 +253,9 @@ func TestRedis_GetAll(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			r := &Redis{
-				client: tt.fields.client,
+				client:     tt.fields.client,
+				lockclient: tt.fields.lockclient,
 			}
 
 			if err := applyTestData(tt.dataToAdd, r.client); err != nil {
