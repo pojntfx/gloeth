@@ -61,3 +61,13 @@ func (r *RoutingTable) GetHops(switcherMAC, adapterMAC *net.HardwareAddr) ([]*ne
 
 	return hops[1 : len(fullPath)-1], nil
 }
+
+// Marshal returns the routing table as raw data
+func (r *RoutingTable) Marshal() [][2]string {
+	return GetRawDataFromGraph(r.graph)
+}
+
+// Unmarshal creates the routing table from raw data
+func (r *RoutingTable) Unmarshal(rawData [][2]string) {
+	r.graph = GetGraphFromRawData(rawData)
+}

@@ -156,7 +156,7 @@ func TestRoutingTable_Register(t *testing.T) {
 			}
 
 			if actualMatchLength != expectedMatchLength {
-				t.Errorf("RoutingTable.Register() error = %v, want %v", got, tt.want)
+				t.Errorf("len(matches(RoutingTable.Register())) = %v, want %v", actualMatchLength, expectedMatchLength)
 			}
 		})
 	}
@@ -264,6 +264,103 @@ func TestRoutingTable_GetHops(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("RoutingTable.GetHops() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRoutingTable_Marshal(t *testing.T) {
+	expectedRawData := getRawGraphData()
+	expectedGraph := GetGraphFromRawData(expectedRawData)
+
+	type fields struct {
+		graph *graph.Graph
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   [][2]string
+	}{
+		{
+			"Marshal",
+			fields{
+				expectedGraph,
+			},
+			expectedRawData,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RoutingTable{
+				graph: tt.fields.graph,
+			}
+
+			got := r.Marshal()
+
+			actualMatchLength := 0
+			expectedMatchLength := len(tt.want)
+			for _, ael := range got {
+				for _, eel := range tt.want {
+					if (ael[0] == eel[1] && ael[1] == eel[0]) || (ael[0] == eel[0] && ael[1] == eel[1]) {
+						actualMatchLength = actualMatchLength + 1
+					}
+				}
+			}
+
+			if actualMatchLength != expectedMatchLength {
+				t.Errorf("len(matches(RoutingTable.Marshal())) = %v, want %v", actualMatchLength, expectedMatchLength)
+			}
+		})
+	}
+}
+
+func TestRoutingTable_Unmarshal(t *testing.T) {
+	expectedRawData := getRawGraphData()
+
+	type fields struct {
+		graph *graph.Graph
+	}
+	type args struct {
+		rawData [][2]string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   [][2]string
+	}{
+		{
+			"Unmarshal",
+			fields{
+				nil,
+			},
+			args{
+				expectedRawData,
+			},
+			expectedRawData,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RoutingTable{
+				graph: tt.fields.graph,
+			}
+			r.Unmarshal(tt.args.rawData)
+
+			got := GetRawDataFromGraph(r.graph)
+
+			actualMatchLength := 0
+			expectedMatchLength := len(tt.want)
+			for _, ael := range got {
+				for _, eel := range tt.want {
+					if (ael[0] == eel[1] && ael[1] == eel[0]) || (ael[0] == eel[0] && ael[1] == eel[1]) {
+						actualMatchLength = actualMatchLength + 1
+					}
+				}
+			}
+
+			if actualMatchLength != expectedMatchLength {
+				t.Errorf("len(matches(getRawData(RoutingTable.Unmarshal()))) = %v, want %v", actualMatchLength, expectedMatchLength)
 			}
 		})
 	}
