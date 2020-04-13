@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/armon/go-metrics v0.3.3 // indirect
+	github.com/bsm/redislock v0.5.0
 	github.com/buraksezer/consistent v0.0.0-20191006190839-693edf70fd72 // indirect
 	github.com/buraksezer/olric v0.2.0-rc.4
 	github.com/cseeger-epages/mac-gen-go v0.0.0-20190220141445-5f6742e2e734
