@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package com.pojtinger.felicitas.gloeth;
+
+option go_package = "github.com/pojntfx/gloeth/pkg/proto";
+
+service FrameService {
+  rpc TransceiveFrames(stream FrameMessage) returns (stream FrameMessage);
+}
+
+message FrameMessage { bytes Content = 1; }
