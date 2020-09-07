@@ -12,14 +12,14 @@ func main() {
 	maximumTransmissionUnit := flag.Int("maximumTransmissionUnit", 1500, "Frame size")
 
 	preSharedKey := flag.String("preSharedKey", "supersecurekey", "Pre-shared key")
-
-	localAddress := flag.String("localAddress", "0.0.0.0:1927", "Local address")
-	localCertificate := flag.String("localCertificate", "/etc/gloeth/local.crt", "Local certificate")
-	localKey := flag.String("localKey", "/etc/gloeth/local.key", "Local key")
-
-	remoteAddress := flag.String("remoteAddress", "example.com:1927", "Remote address")
-	remoteCertificate := flag.String("remoteCertificate", "/etc/gloeth/remote.crt", "Remote certificate")
 	genesis := flag.Bool("genesis", false, "Enable genesis mode")
+
+	localAddress := flag.String("localAddress", "0.0.0.0:1927", "Local address (only required when in genesis mode)")
+	localCertificate := flag.String("localCertificate", "/etc/gloeth/local.crt", "Local certificate (only required when in genesis mode)")
+	localKey := flag.String("localKey", "/etc/gloeth/local.key", "Local key (only required when in genesis mode)")
+
+	remoteAddress := flag.String("remoteAddress", "example.com:1927", "Remote address (not required when in genesis mode)")
+	remoteCertificate := flag.String("remoteCertificate", "/etc/gloeth/remote.crt", "Remote certificate (not required when in genesis mode)")
 
 	debug := flag.Bool("debug", false, "Enable debugging mode")
 
@@ -27,9 +27,9 @@ func main() {
 
 	// Create instances
 	preSharedKeyValidator := validators.NewPreSharedKeyValidator(*preSharedKey)
-	frameService := services.NewFrameService(preSharedKeyValidator)
+	frameService := services.NewFrameService()
 	frameServer := servers.NewFrameServer(*localAddress, *localCertificate, *localKey, frameService)
-	frameClient := clients.NewFrameClient(*remoteAddress, *remoteCertificate, preSharedKeyValidator)
+	frameClient := clients.NewFrameClient(*remoteAddress, *remoteCertificate)
 	tapDevice := devices.NewTapDevice(*deviceName, *maximumTransmissionUnit)
 
 	// Open instances
@@ -64,11 +64,11 @@ func main() {
 			}
 
 			if *genesis {
-				if err := frameService.Write(frame); err != nil {
+				if err := frameService.Write(frame, *preSharedKey); err != nil {
 					log.Println("could not write to frame service, dropping frame", err)
 				}
 			} else {
-				if err := frameClient.Write(frame); err != nil {
+				if err := frameClient.Write(frame, *preSharedKey); err != nil {
 					log.Println("could not write to frame client, dropping frame", err)
 				}
 			}
@@ -80,9 +80,13 @@ func main() {
 	if *genesis {
 		go func(wg *sync.WaitGroup) {
 			for {
-				frame, err := frameService.Read()
+				frame, key, err := frameService.Read()
 				if err != nil {
 					log.Println("could not read from frame service, dropping frame", err)
+				}
+
+				if valid := preSharedKeyValidator.ValidateKey(key); !valid {
+					log.Println("got invalid pre-shared key, dropping frame")
 				}
 
 				if err := tapDevice.Write(frame); err != nil {
@@ -95,9 +99,13 @@ func main() {
 	} else {
 		go func(wg *sync.WaitGroup) {
 			for {
-				frame, err := frameClient.Read()
+				frame, key, err := frameClient.Read()
 				if err != nil {
 					log.Println("could not read from frame client, dropping frame", err)
+				}
+
+				if valid := preSharedKeyValidator.ValidateKey(key); !valid {
+					log.Println("got invalid pre-shared key, dropping frame")
 				}
 
 				if err := tapDevice.Write(frame); err != nil {
