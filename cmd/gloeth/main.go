@@ -5,6 +5,8 @@ import (
 	"log"
 	"sync"
 
+	"github.com/pojntfx/gloeth/pkg/converters"
+	"github.com/pojntfx/gloeth/pkg/services"
 	"github.com/pojntfx/gloeth/pkg/validators"
 )
 
@@ -68,7 +70,7 @@ func main() {
 				continue
 			}
 
-			frame, err := frameConverter.toExternal(rawFrame)
+			frame, err := frameConverter.ToExternal(rawFrame)
 			if err != nil {
 				log.Println("could not convert internal frame to external frame, dropping frame", err)
 
@@ -109,7 +111,7 @@ func main() {
 					continue
 				}
 
-				rawFrame, err := frameConverter.toInternal(frame)
+				rawFrame, err := frameConverter.ToInternal(frame)
 				if err != nil {
 					log.Println("could not convert external frame to internal frame, dropping frame", err)
 
@@ -141,7 +143,7 @@ func main() {
 					continue
 				}
 
-				rawFrame, err := frameConverter.toInternal(frame)
+				rawFrame, err := frameConverter.ToInternal(frame)
 				if err != nil {
 					log.Println("could not convert external frame to internal frame, dropping frame", err)
 
