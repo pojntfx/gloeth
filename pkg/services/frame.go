@@ -6,8 +6,25 @@ import proto "github.com/pojntfx/gloeth/pkg/proto/generated"
 
 type FrameService struct {
 	proto.UnimplementedFrameServiceServer
+	channel proto.FrameService_TransceiveFramesServer
 }
 
 func NewFrameService() *FrameService {
 	return &FrameService{}
+}
+
+func (s *FrameService) TransceiveFrames(channel proto.FrameService_TransceiveFramesServer) error {
+	s.channel = channel
+
+	for {
+
+	}
+}
+
+func (s *FrameService) Write(frame *proto.FrameMessage) error {
+	return s.channel.Send(frame)
+}
+
+func (s *FrameService) Read() (*proto.FrameMessage, error) {
+	return s.channel.Recv()
 }

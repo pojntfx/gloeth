@@ -9,10 +9,10 @@ func NewFrameConverter() *FrameConverter {
 	return &FrameConverter{}
 }
 
-func (c *FrameConverter) ToExternal(rawFrame []byte) (proto.FrameMessage, error) {
-	return proto.FrameMessage{Content: rawFrame}, nil
+func (c *FrameConverter) ToExternal(rawFrame []byte, preSharedKey string) (*proto.FrameMessage, error) {
+	return &proto.FrameMessage{Content: rawFrame, PreSharedKey: preSharedKey}, nil
 }
 
-func (c *FrameConverter) ToInternal(frame proto.FrameMessage) ([]byte, error) {
-	return frame.Content, nil
+func (c *FrameConverter) ToInternal(frame *proto.FrameMessage) ([]byte, string, error) {
+	return frame.Content, frame.PreSharedKey, nil
 }

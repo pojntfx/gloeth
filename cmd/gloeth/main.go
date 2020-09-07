@@ -5,7 +5,9 @@ import (
 	"log"
 	"sync"
 
+	"github.com/pojntfx/gloeth/pkg/clients"
 	"github.com/pojntfx/gloeth/pkg/converters"
+	"github.com/pojntfx/gloeth/pkg/servers"
 	"github.com/pojntfx/gloeth/pkg/services"
 	"github.com/pojntfx/gloeth/pkg/validators"
 )
@@ -25,7 +27,7 @@ func main() {
 	remoteAddress := flag.String("remoteAddress", "example.com:1927", "Remote address (not required when in genesis mode)")
 	remoteCertificate := flag.String("remoteCertificate", "/etc/gloeth/remote.crt", "Remote certificate (not required when in genesis mode)")
 
-	debug := flag.Bool("debug", false, "Enable debugging mode")
+	// debug := flag.Bool("debug", false, "Enable debugging mode")
 
 	flag.Parse()
 
@@ -38,23 +40,25 @@ func main() {
 	tapDevice := devices.NewTapDevice(*deviceName, *maximumTransmissionUnit)
 
 	// Open instances
-	if *debug {
-		log.Println("opening instances")
-	}
-
 	if *genesis {
-		if err := frameServer.Open(); err != nil {
-			log.Fatal("could not open frame server", err)
-		}
+		go func() {
+			if err := frameServer.Open(); err != nil {
+				log.Fatal("could not open frame server", err)
+			}
+		}()
 	} else {
-		if err := frameClient.Open(); err != nil {
-			log.Fatal("could not open frame client", err)
-		}
+		go func() {
+			if err := frameClient.Open(); err != nil {
+				log.Fatal("could not open frame client", err)
+			}
+		}()
 	}
 
-	if err := tapDevice.Open(); err != nil {
-		log.Fatal("could not open TAP device", err)
-	}
+	go func() {
+		if err := tapDevice.Open(); err != nil {
+			log.Fatal("could not open TAP device", err)
+		}
+	}()
 
 	// Connect instances
 	var wg sync.WaitGroup
@@ -70,7 +74,7 @@ func main() {
 				continue
 			}
 
-			frame, err := frameConverter.ToExternal(rawFrame)
+			frame, err := frameConverter.ToExternal(rawFrame, *preSharedKey)
 			if err != nil {
 				log.Println("could not convert internal frame to external frame, dropping frame", err)
 
@@ -78,13 +82,13 @@ func main() {
 			}
 
 			if *genesis {
-				if err := frameService.Write(frame, *preSharedKey); err != nil {
+				if err := frameService.Write(frame); err != nil {
 					log.Println("could not write to frame service, dropping frame", err)
 
 					continue
 				}
 			} else {
-				if err := frameClient.Write(frame, *preSharedKey); err != nil {
+				if err := frameClient.Write(frame); err != nil {
 					log.Println("could not write to frame client, dropping frame", err)
 
 					continue
@@ -98,20 +102,20 @@ func main() {
 	if *genesis {
 		go func(wg *sync.WaitGroup) {
 			for {
-				frame, key, err := frameService.Read()
+				frame, err := frameService.Read()
 				if err != nil {
 					log.Println("could not read from frame service, dropping frame", err)
 
 					continue
 				}
 
-				if valid := preSharedKeyValidator.Validate(key); !valid {
+				if valid := preSharedKeyValidator.Validate(frame.PreSharedKey); !valid {
 					log.Println("got invalid pre-shared key, dropping frame")
 
 					continue
 				}
 
-				rawFrame, err := frameConverter.ToInternal(frame)
+				rawFrame, _, err := frameConverter.ToInternal(frame)
 				if err != nil {
 					log.Println("could not convert external frame to internal frame, dropping frame", err)
 
@@ -130,20 +134,20 @@ func main() {
 	} else {
 		go func(wg *sync.WaitGroup) {
 			for {
-				frame, key, err := frameClient.Read()
+				frame, err := frameClient.Read()
 				if err != nil {
 					log.Println("could not read from frame client, dropping frame", err)
 
 					continue
 				}
 
-				if valid := preSharedKeyValidator.Validate(key); !valid {
+				if valid := preSharedKeyValidator.Validate(frame.PreSharedKey); !valid {
 					log.Println("got invalid pre-shared key, dropping frame")
 
 					continue
 				}
 
-				rawFrame, err := frameConverter.ToInternal(frame)
+				rawFrame, _, err := frameConverter.ToInternal(frame)
 				if err != nil {
 					log.Println("could not convert external frame to internal frame, dropping frame", err)
 
