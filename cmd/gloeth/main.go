@@ -7,6 +7,7 @@ import (
 
 	"github.com/pojntfx/gloeth/pkg/clients"
 	"github.com/pojntfx/gloeth/pkg/converters"
+	"github.com/pojntfx/gloeth/pkg/devices"
 	"github.com/pojntfx/gloeth/pkg/servers"
 	"github.com/pojntfx/gloeth/pkg/services"
 	"github.com/pojntfx/gloeth/pkg/validators"
@@ -37,7 +38,7 @@ func main() {
 	frameService := services.NewFrameService()
 	frameServer := servers.NewFrameServer(*localAddress, *localCertificate, *localKey, frameService)
 	frameClient := clients.NewFrameClient(*remoteAddress, *remoteCertificate)
-	tapDevice := devices.NewTapDevice(*deviceName, *maximumTransmissionUnit)
+	tapDevice := devices.NewTAPDevice(*deviceName, *maximumTransmissionUnit)
 
 	// Open instances
 	if *genesis {
@@ -95,8 +96,6 @@ func main() {
 				}
 			}
 		}
-
-		wg.Done()
 	}(&wg)
 
 	if *genesis {
@@ -128,8 +127,6 @@ func main() {
 					continue
 				}
 			}
-
-			wg.Done()
 		}(&wg)
 	} else {
 		go func(wg *sync.WaitGroup) {
@@ -160,8 +157,6 @@ func main() {
 					continue
 				}
 			}
-
-			wg.Done()
 		}(&wg)
 	}
 
