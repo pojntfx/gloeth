@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/pojntfx/gloeth/pkg/clients"
 	"github.com/pojntfx/gloeth/pkg/converters"
@@ -28,7 +29,7 @@ func main() {
 	remoteAddress := flag.String("remoteAddress", "example.com:1927", "Remote address (not required when in genesis mode)")
 	remoteCertificate := flag.String("remoteCertificate", "/etc/gloeth/remote.crt", "Remote certificate (not required when in genesis mode)")
 
-	// debug := flag.Bool("debug", false, "Enable debugging mode")
+	debug := flag.Bool("debug", false, "Enable debugging mode")
 
 	flag.Parse()
 
@@ -43,12 +44,16 @@ func main() {
 	// Open instances
 	if *genesis {
 		go func() {
+			log.Println("Opening frame server")
+
 			if err := frameServer.Open(); err != nil {
 				log.Fatal("could not open frame server", err)
 			}
 		}()
 	} else {
 		go func() {
+			log.Println("Opening frame client")
+
 			if err := frameClient.Open(); err != nil {
 				log.Fatal("could not open frame client", err)
 			}
@@ -56,6 +61,8 @@ func main() {
 	}
 
 	go func() {
+		log.Println("Opening TAP device")
+
 		if err := tapDevice.Open(); err != nil {
 			log.Fatal("could not open TAP device", err)
 		}
@@ -67,6 +74,8 @@ func main() {
 	wg.Add(2)
 
 	go func(wg *sync.WaitGroup) {
+		log.Println("Reading from TAP device")
+
 		for {
 			rawFrame, err := tapDevice.Read()
 			if err != nil {
@@ -83,14 +92,26 @@ func main() {
 			}
 
 			if *genesis {
+				if *debug {
+					log.Println("Writing frame from TAP device to frame service")
+				}
+
 				if err := frameService.Write(frame); err != nil {
-					log.Println("could not write to frame service, dropping frame", err)
+					log.Println("could not write to frame service, dropping frame and continuing in 250ms", err)
+
+					time.Sleep(time.Millisecond * 250)
 
 					continue
 				}
 			} else {
+				if *debug {
+					log.Println("Writing frame from TAP device to frame client")
+				}
+
 				if err := frameClient.Write(frame); err != nil {
-					log.Println("could not write to frame client, dropping frame", err)
+					log.Println("could not write to frame client, dropping frame and continuing in 250ms", err)
+
+					time.Sleep(time.Millisecond * 250)
 
 					continue
 				}
@@ -100,12 +121,24 @@ func main() {
 
 	if *genesis {
 		go func(wg *sync.WaitGroup) {
+			log.Println("Reading from frame service")
+
 			for {
 				frame, err := frameService.Read()
 				if err != nil {
-					log.Println("could not read from frame service, dropping frame", err)
+					log.Println("could not read from frame service, dropping frame and continuing in 250ms", err)
+
+					time.Sleep(time.Millisecond * 250)
+				}
+
+				if frame == nil {
+					log.Println("read invalid frame from from frame service, dropping frame")
 
 					continue
+				}
+
+				if *debug {
+					log.Println("Read frame from from frame service")
 				}
 
 				if valid := preSharedKeyValidator.Validate(frame.PreSharedKey); !valid {
@@ -119,6 +152,10 @@ func main() {
 					log.Println("could not convert external frame to internal frame, dropping frame", err)
 
 					continue
+				}
+
+				if *debug {
+					log.Println("Writing frame from frame service to TAP device")
 				}
 
 				if err := tapDevice.Write(rawFrame); err != nil {
@@ -130,10 +167,24 @@ func main() {
 		}(&wg)
 	} else {
 		go func(wg *sync.WaitGroup) {
+			log.Println("Reading from frame client")
+
 			for {
 				frame, err := frameClient.Read()
 				if err != nil {
-					log.Println("could not read from frame client, dropping frame", err)
+					log.Println("could not read from frame client, dropping frame and reconnecting in 250ms", err)
+
+					time.Sleep(time.Millisecond * 250)
+
+					if err := frameClient.Open(); err != nil {
+						log.Println("could not reconnect to frame client, retrying in 250ms")
+					}
+
+					continue
+				}
+
+				if frame == nil {
+					log.Println("read invalid frame from from frame client, dropping frame")
 
 					continue
 				}
@@ -149,6 +200,10 @@ func main() {
 					log.Println("could not convert external frame to internal frame, dropping frame", err)
 
 					continue
+				}
+
+				if *debug {
+					log.Println("Writing frame from frame client to TAP device")
 				}
 
 				if err := tapDevice.Write(rawFrame); err != nil {

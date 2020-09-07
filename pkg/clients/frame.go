@@ -42,9 +42,19 @@ func (c *FrameClient) Open() error {
 }
 
 func (c *FrameClient) Write(frame *proto.FrameMessage) error {
+	c.waitTillOpen()
+
 	return c.channel.Send(frame)
 }
 
 func (c *FrameClient) Read() (*proto.FrameMessage, error) {
+	c.waitTillOpen()
+
 	return c.channel.Recv()
+}
+
+func (s *FrameClient) waitTillOpen() {
+	for s.channel == nil {
+
+	}
 }

@@ -45,15 +45,25 @@ func (d *TAPDevice) Open() error {
 }
 
 func (d *TAPDevice) Write(rawFrame []byte) error {
+	d.waitTillOpen()
+
 	_, err := d.device.Write(rawFrame)
 
 	return err
 }
 
 func (d *TAPDevice) Read() ([]byte, error) {
+	d.waitTillOpen()
+
 	readFrame := make([]byte, d.maximumTransmissionUnit)
 
 	_, err := d.device.Read(readFrame)
 
 	return readFrame, err
+}
+
+func (d *TAPDevice) waitTillOpen() {
+	for d.device == nil {
+
+	}
 }
