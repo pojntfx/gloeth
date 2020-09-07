@@ -8,4 +8,7 @@ service FrameService {
   rpc TransceiveFrames(stream FrameMessage) returns (stream FrameMessage);
 }
 
-message FrameMessage { bytes Content = 1; }
+message FrameMessage {
+  bytes Content = 1;
+  string PreSharedKey = 2;
+}
