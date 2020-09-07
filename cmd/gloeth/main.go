@@ -3,54 +3,111 @@ package main
 import (
 	"flag"
 	"log"
-	"net"
-
-	"github.com/pojntfx/gloeth/pkg/proto/generated/proto"
-	"github.com/pojntfx/gloeth/pkg/services"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/reflection"
+	"sync"
 )
 
 func main() {
+	// Parse flags
 	deviceName := flag.String("deviceName", "gloeth0", "Network device name")
-	token := flag.String("preSharedKey", "supersecretkey", "Pre-shared key")
+	maximumTransmissionUnit := flag.Int("maximumTransmissionUnit", 1500, "Frame size")
 
-	localAddr := flag.String("localAddr", "0.0.0.0:1927", "Local address")
-	localCert := flag.String("localCert", "local.crt", "Local certificate")
-	localKey := flag.String("localKey", "local.key", "Local key")
+	preSharedKey := flag.String("preSharedKey", "supersecurekey", "Pre-shared key")
 
-	remoteAddr := flag.String("remoteAddr", "10.0.0.25:1927", "Remote address")
-	remoteCert := flag.String("remoteCert", "remote.crt", "Remote certificate")
+	localAddress := flag.String("localAddress", "0.0.0.0:1927", "Local address")
+	localCertificate := flag.String("localCertificate", "/etc/gloeth/local.crt", "Local certificate")
+	localKey := flag.String("localKey", "/etc/gloeth/local.key", "Local key")
 
-	debug := flag.Bool("debug", false, "Enable debugging ouput")
+	remoteAddress := flag.String("remoteAddress", "example.com:1927", "Remote address")
+	remoteCertificate := flag.String("remoteCertificate", "/etc/gloeth/remote.crt", "Remote certificate")
+	genesis := flag.Bool("genesis", false, "Enable genesis mode")
+
+	debug := flag.Bool("debug", false, "Enable debugging mode")
 
 	flag.Parse()
 
+	// Create instances
+	preSharedKeyValidator := validators.NewPreSharedKeyValidator(*preSharedKey)
+	frameService := services.NewFrameService(preSharedKeyValidator)
+	frameServer := servers.NewFrameServer(*localAddress, *localCertificate, *localKey, frameService)
+	frameClient := clients.NewFrameClient(*remoteAddress, *remoteCertificate, preSharedKeyValidator)
+	tapDevice := devices.NewTapDevice(*deviceName, *maximumTransmissionUnit)
+
+	// Open instances
 	if *debug {
-		log.Println(*deviceName, *token, *localAddr, *localCert, *localKey, *remoteAddr, *remoteCert, *debug)
+		log.Println("opening instances")
 	}
 
-	listenAddress, err := net.ResolveTCPAddr("tcp", *localAddr)
-	if err != nil {
-		log.Fatal(err)
+	if *genesis {
+		if err := frameServer.Open(); err != nil {
+			log.Fatal("could not open frame server", err)
+		}
+	} else {
+		if err := frameClient.Open(); err != nil {
+			log.Fatal("could not open frame client", err)
+		}
 	}
 
-	listener, err := net.ListenTCP("tcp", listenAddress)
-	if err != nil {
-		log.Fatal(err)
+	if err := tapDevice.Open(); err != nil {
+		log.Fatal("could not open TAP device", err)
 	}
 
-	creds, err := credentials.NewServerTLSFromFile(*localCert, *localKey)
-	if err != nil {
-		log.Fatal(err)
-	}
-	s := grpc.NewServer(grpc.Creds(creds))
+	// Connect instances
+	var wg sync.WaitGroup
 
-	reflection.Register(s)
-	proto.RegisterFrameServiceServer(s, &services.FrameService{})
+	wg.Add(2)
 
-	if err = s.Serve(listener); err != nil {
-		log.Fatal(err)
+	go func(wg *sync.WaitGroup) {
+		for {
+			frame, err := tapDevice.Read()
+			if err != nil {
+				log.Println("could not read from TAP device, dropping frame", err)
+			}
+
+			if *genesis {
+				if err := frameService.Write(frame); err != nil {
+					log.Println("could not write to frame service, dropping frame", err)
+				}
+			} else {
+				if err := frameClient.Write(frame); err != nil {
+					log.Println("could not write to frame client, dropping frame", err)
+				}
+			}
+		}
+
+		wg.Done()
+	}(&wg)
+
+	if *genesis {
+		go func(wg *sync.WaitGroup) {
+			for {
+				frame, err := frameService.Read()
+				if err != nil {
+					log.Println("could not read from frame service, dropping frame", err)
+				}
+
+				if err := tapDevice.Write(frame); err != nil {
+					log.Println("could not write to TAP device, dropping frame", err)
+				}
+			}
+
+			wg.Done()
+		}(&wg)
+	} else {
+		go func(wg *sync.WaitGroup) {
+			for {
+				frame, err := frameClient.Read()
+				if err != nil {
+					log.Println("could not read from frame client, dropping frame", err)
+				}
+
+				if err := tapDevice.Write(frame); err != nil {
+					log.Println("could not write to TAP device, dropping frame", err)
+				}
+			}
+
+			wg.Done()
+		}(&wg)
 	}
+
+	wg.Wait()
 }
