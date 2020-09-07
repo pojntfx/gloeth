@@ -27,6 +27,7 @@ func main() {
 
 	// Create instances
 	preSharedKeyValidator := validators.NewPreSharedKeyValidator(*preSharedKey)
+	frameConverter := converters.NewFrameConverter()
 	frameService := services.NewFrameService()
 	frameServer := servers.NewFrameServer(*localAddress, *localCertificate, *localKey, frameService)
 	frameClient := clients.NewFrameClient(*remoteAddress, *remoteCertificate)
@@ -58,18 +59,31 @@ func main() {
 
 	go func(wg *sync.WaitGroup) {
 		for {
-			frame, err := tapDevice.Read()
+			rawFrame, err := tapDevice.Read()
 			if err != nil {
 				log.Println("could not read from TAP device, dropping frame", err)
+
+				continue
+			}
+
+			frame, err := frameConverter.toExternal(rawFrame)
+			if err != nil {
+				log.Println("could not convert internal frame to external frame, dropping frame", err)
+
+				continue
 			}
 
 			if *genesis {
 				if err := frameService.Write(frame, *preSharedKey); err != nil {
 					log.Println("could not write to frame service, dropping frame", err)
+
+					continue
 				}
 			} else {
 				if err := frameClient.Write(frame, *preSharedKey); err != nil {
 					log.Println("could not write to frame client, dropping frame", err)
+
+					continue
 				}
 			}
 		}
@@ -83,14 +97,27 @@ func main() {
 				frame, key, err := frameService.Read()
 				if err != nil {
 					log.Println("could not read from frame service, dropping frame", err)
+
+					continue
 				}
 
 				if valid := preSharedKeyValidator.ValidateKey(key); !valid {
 					log.Println("got invalid pre-shared key, dropping frame")
+
+					continue
 				}
 
-				if err := tapDevice.Write(frame); err != nil {
+				rawFrame, err := frameConverter.toInternal(frame)
+				if err != nil {
+					log.Println("could not convert external frame to internal frame, dropping frame", err)
+
+					continue
+				}
+
+				if err := tapDevice.Write(rawFrame); err != nil {
 					log.Println("could not write to TAP device, dropping frame", err)
+
+					continue
 				}
 			}
 
@@ -102,14 +129,27 @@ func main() {
 				frame, key, err := frameClient.Read()
 				if err != nil {
 					log.Println("could not read from frame client, dropping frame", err)
+
+					continue
 				}
 
 				if valid := preSharedKeyValidator.ValidateKey(key); !valid {
 					log.Println("got invalid pre-shared key, dropping frame")
+
+					continue
 				}
 
-				if err := tapDevice.Write(frame); err != nil {
+				rawFrame, err := frameConverter.toInternal(frame)
+				if err != nil {
+					log.Println("could not convert external frame to internal frame, dropping frame", err)
+
+					continue
+				}
+
+				if err := tapDevice.Write(rawFrame); err != nil {
 					log.Println("could not write to TAP device, dropping frame", err)
+
+					continue
 				}
 			}
 
