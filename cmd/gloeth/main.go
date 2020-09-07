@@ -4,6 +4,8 @@ import (
 	"flag"
 	"log"
 	"sync"
+
+	"github.com/pojntfx/gloeth/pkg/validators"
 )
 
 func main() {
@@ -101,7 +103,7 @@ func main() {
 					continue
 				}
 
-				if valid := preSharedKeyValidator.ValidateKey(key); !valid {
+				if valid := preSharedKeyValidator.Validate(key); !valid {
 					log.Println("got invalid pre-shared key, dropping frame")
 
 					continue
@@ -133,7 +135,7 @@ func main() {
 					continue
 				}
 
-				if valid := preSharedKeyValidator.ValidateKey(key); !valid {
+				if valid := preSharedKeyValidator.Validate(key); !valid {
 					log.Println("got invalid pre-shared key, dropping frame")
 
 					continue
