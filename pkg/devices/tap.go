@@ -1,47 +1,37 @@
 package devices
 
 import (
-	"github.com/pojntfx/gloeth/pkg/encryptors"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
 )
 
-const (
-	MTU = encryptors.PlaintextFrameSize - 14 // MTU is the MTU, which is the plaintext frame size - ethernet header (14 bytes)
-)
-
-// TAP is a TAP device
-type TAP struct {
-	readChan chan [encryptors.PlaintextFrameSize]byte
-	mtu      uint
-	name     string
-	dev      *water.Interface
-	closed   bool
+type TAPDevice struct {
+	deviceName              string
+	maximumTransmissionUnit int
+	device                  *water.Interface
 }
 
-// NewTAP creates a new TAP device
-func NewTAP(readChan chan [encryptors.PlaintextFrameSize]byte, mtu uint, name string) *TAP {
-	return &TAP{readChan, mtu, name, nil, true}
+func NewTAPDevice(deviceName string, maximumTransmissionUnit int) *TAPDevice {
+	return &TAPDevice{deviceName, maximumTransmissionUnit, nil}
 }
 
-// Open opens the TAP device
-func (t *TAP) Open() error {
-	dev, err := water.New(water.Config{
+func (d *TAPDevice) Open() error {
+	device, err := water.New(water.Config{
 		DeviceType: water.TAP,
 		PlatformSpecificParams: water.PlatformSpecificParams{
-			Name: t.name,
+			Name: d.deviceName,
 		},
 	})
 	if err != nil {
 		return err
 	}
 
-	link, err := netlink.LinkByName(t.name)
+	link, err := netlink.LinkByName(d.deviceName)
 	if err != nil {
 		return err
 	}
 
-	if err := netlink.LinkSetMTU(link, int(t.mtu)); err != nil {
+	if err := netlink.LinkSetMTU(link, d.maximumTransmissionUnit); err != nil {
 		return err
 	}
 
@@ -49,44 +39,31 @@ func (t *TAP) Open() error {
 		return err
 	}
 
-	t.dev = dev
-	t.closed = false
+	d.device = device
 
 	return nil
 }
 
-// Close closes the TAP device
-func (t *TAP) Close() error {
-	t.closed = true
+func (d *TAPDevice) Write(rawFrame []byte) error {
+	d.waitTillOpen()
 
-	return t.dev.Close()
-}
-
-// Read reads from the TAP device
-func (t *TAP) Read() error {
-	for {
-		if t.closed {
-			return nil
-		}
-
-		readFrame := [encryptors.PlaintextFrameSize]byte{}
-
-		_, err := t.dev.Read(readFrame[:])
-		if err != nil {
-			if t.closed {
-				return nil
-			}
-
-			return err
-		}
-
-		t.readChan <- readFrame
-	}
-}
-
-// Write writes from the TAP device
-func (t *TAP) Write(frame [encryptors.PlaintextFrameSize]byte) error {
-	_, err := t.dev.Write(frame[:])
+	_, err := d.device.Write(rawFrame)
 
 	return err
+}
+
+func (d *TAPDevice) Read() ([]byte, error) {
+	d.waitTillOpen()
+
+	readFrame := make([]byte, d.maximumTransmissionUnit)
+
+	_, err := d.device.Read(readFrame)
+
+	return readFrame, err
+}
+
+func (d *TAPDevice) waitTillOpen() {
+	for d.device == nil {
+
+	}
 }
